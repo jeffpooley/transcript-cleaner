@@ -160,6 +160,17 @@
             border: 2px solid #34C759;
         }
 
+        .diff-deleted {
+            background-color: #ffcccc;
+            text-decoration: line-through;
+            padding: 2px 0;
+        }
+
+        .diff-added {
+            background-color: #ccffcc;
+            padding: 2px 0;
+        }
+
         .download-buttons {
             margin-top: 20px;
             display: flex;
@@ -610,6 +621,70 @@ Dictionary entries used: ${Object.keys(dictionary).length}
             }
         }
 
+        function highlightDiff(original, corrected) {
+            // Simple word-level diff highlighting
+            // Split into lines for better comparison
+            const originalLines = original.split('\n');
+            const correctedLines = corrected.split('\n');
+
+            let highlightedOriginal = '';
+            let highlightedCorrected = '';
+
+            const maxLines = Math.max(originalLines.length, correctedLines.length);
+
+            for (let i = 0; i < maxLines; i++) {
+                const origLine = originalLines[i] || '';
+                const corrLine = correctedLines[i] || '';
+
+                if (origLine === corrLine) {
+                    // Lines are identical
+                    highlightedOriginal += escapeHtml(origLine) + '\n';
+                    highlightedCorrected += escapeHtml(corrLine) + '\n';
+                } else {
+                    // Lines differ - do word-level comparison
+                    const origWords = origLine.split(/(\s+)/);
+                    const corrWords = corrLine.split(/(\s+)/);
+
+                    let origHighlighted = '';
+                    let corrHighlighted = '';
+
+                    // Simple approach: highlight words that don't match
+                    const maxWords = Math.max(origWords.length, corrWords.length);
+
+                    for (let j = 0; j < maxWords; j++) {
+                        const origWord = origWords[j] || '';
+                        const corrWord = corrWords[j] || '';
+
+                        if (origWord === corrWord) {
+                            origHighlighted += escapeHtml(origWord);
+                            corrHighlighted += escapeHtml(corrWord);
+                        } else {
+                            if (origWord) {
+                                origHighlighted += `<span class="diff-deleted">${escapeHtml(origWord)}</span>`;
+                            }
+                            if (corrWord) {
+                                corrHighlighted += `<span class="diff-added">${escapeHtml(corrWord)}</span>`;
+                            }
+                        }
+                    }
+
+                    highlightedOriginal += origHighlighted + '\n';
+                    highlightedCorrected += corrHighlighted + '\n';
+                }
+            }
+
+            return {
+                original: highlightedOriginal,
+                corrected: highlightedCorrected
+            };
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function displayResults(changes) {
             // Show report
             reportDiv.innerHTML = `
@@ -625,9 +700,10 @@ Dictionary entries used: ${Object.keys(dictionary).length}
                 </ul>
             `;
 
-            // Show diff
-            originalContentDiv.textContent = vttContent;
-            correctedContentDiv.textContent = correctedVTT;
+            // Show diff with highlighting
+            const diff = highlightDiff(vttContent, correctedVTT);
+            originalContentDiv.innerHTML = diff.original;
+            correctedContentDiv.innerHTML = diff.corrected;
 
             // Show results section
             resultsDiv.classList.add('visible');
