@@ -202,6 +202,85 @@
             margin-bottom: 20px;
             border-left: 4px solid #1565C0;
         }
+
+        .dictionary-manager {
+            margin-top: 15px;
+        }
+
+        .dictionary-manager h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .dictionary-manager h4 {
+            margin-bottom: 10px;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .add-entry {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .add-entry input[type="text"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .add-entry .arrow {
+            color: #666;
+            font-weight: bold;
+        }
+
+        .custom-entries {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .entries-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .entry-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .entry-text {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .entry-delete {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .entry-delete:hover {
+            background: #cc0000;
+        }
     </style>
 </head>
 <body>
@@ -222,6 +301,25 @@
         </div>
 
         <button id="processBtn" disabled>Process Transcript</button>
+    </div>
+
+    <div class="controls">
+        <h3>Dictionary Manager</h3>
+        <div class="dictionary-manager">
+            <div class="add-entry">
+                <input type="text" id="incorrectWord" placeholder="Incorrect word/phrase" />
+                <span class="arrow">→</span>
+                <input type="text" id="correctWord" placeholder="Correct version" />
+                <button id="addEntryBtn">Add to Dictionary</button>
+            </div>
+
+            <div id="customEntries" class="custom-entries">
+                <h4>Custom Additions (<span id="entryCount">0</span>)</h4>
+                <div id="entriesList" class="entries-list"></div>
+            </div>
+
+            <button id="downloadDictBtn" class="secondary-button">Download Updated Dictionary</button>
+        </div>
     </div>
 
     <div id="results" class="results">
@@ -299,6 +397,104 @@
         const downloadBtn = document.getElementById('downloadBtn');
         const downloadReportBtn = document.getElementById('downloadReportBtn');
 
+        // Dictionary manager elements
+        const incorrectWordInput = document.getElementById('incorrectWord');
+        const correctWordInput = document.getElementById('correctWord');
+        const addEntryBtn = document.getElementById('addEntryBtn');
+        const downloadDictBtn = document.getElementById('downloadDictBtn');
+        const entriesList = document.getElementById('entriesList');
+        const entryCount = document.getElementById('entryCount');
+
+        // Load custom dictionary entries from localStorage
+        function loadCustomEntries() {
+            const stored = localStorage.getItem('customDictionary');
+            return stored ? JSON.parse(stored) : {};
+        }
+
+        function saveCustomEntries(entries) {
+            localStorage.setItem('customDictionary', JSON.stringify(entries));
+        }
+
+        function getMergedDictionary() {
+            const customEntries = loadCustomEntries();
+            return { ...dictionary, ...customEntries };
+        }
+
+        function updateEntriesList() {
+            const customEntries = loadCustomEntries();
+            const count = Object.keys(customEntries).length;
+            entryCount.textContent = count;
+
+            if (count === 0) {
+                entriesList.innerHTML = '<p style="color: #999; font-size: 13px;">No custom additions yet</p>';
+                return;
+            }
+
+            entriesList.innerHTML = '';
+            for (const [incorrect, correct] of Object.entries(customEntries)) {
+                const item = document.createElement('div');
+                item.className = 'entry-item';
+                item.innerHTML = `
+                    <span class="entry-text">"${incorrect}" → "${correct}"</span>
+                    <button class="entry-delete" data-key="${incorrect}">Delete</button>
+                `;
+                entriesList.appendChild(item);
+            }
+
+            // Add delete handlers
+            document.querySelectorAll('.entry-delete').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const key = e.target.dataset.key;
+                    const customEntries = loadCustomEntries();
+                    delete customEntries[key];
+                    saveCustomEntries(customEntries);
+                    updateEntriesList();
+                    // Update the working dictionary
+                    dictionary = getMergedDictionary();
+                });
+            });
+        }
+
+        function addDictionaryEntry() {
+            const incorrect = incorrectWordInput.value.trim().toLowerCase();
+            const correct = correctWordInput.value.trim();
+
+            if (!incorrect || !correct) {
+                alert('Please enter both incorrect and correct versions');
+                return;
+            }
+
+            const customEntries = loadCustomEntries();
+            customEntries[incorrect] = correct;
+            saveCustomEntries(customEntries);
+
+            // Clear inputs
+            incorrectWordInput.value = '';
+            correctWordInput.value = '';
+
+            // Update display and working dictionary
+            updateEntriesList();
+            dictionary = getMergedDictionary();
+
+            alert(`Added: "${incorrect}" → "${correct}"`);
+        }
+
+        function downloadMergedDictionary() {
+            const merged = getMergedDictionary();
+            const json = JSON.stringify(merged, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dictionary.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize dictionary with custom entries
+        dictionary = getMergedDictionary();
+        updateEntriesList();
+
         // Hard-coded filler words to remove
         const FILLER_WORDS = ['uh', 'um', 'uh,', 'um,'];
 
@@ -314,6 +510,13 @@
         processBtn.addEventListener('click', processTranscript);
         downloadBtn.addEventListener('click', downloadCorrectedVTT);
         downloadReportBtn.addEventListener('click', downloadReport);
+        addEntryBtn.addEventListener('click', addDictionaryEntry);
+        downloadDictBtn.addEventListener('click', downloadMergedDictionary);
+
+        // Allow Enter key to add dictionary entry
+        correctWordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addDictionaryEntry();
+        });
 
         async function handleVTTFile(event) {
             const file = event.target.files[0];
