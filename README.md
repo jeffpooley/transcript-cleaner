@@ -65,6 +65,21 @@ The dictionary uses this format (whether built-in or uploaded):
 - Speaker turns must be marked with `NAME:` at the start of paragraphs (e.g., `GROSS:`)
 - VTT file from MacWhisper or similar transcription tool
 
+## Acronym Expansion
+
+The app automatically expands acronyms on first mention by adding the full name in square brackets:
+- Example: `HBO` → `HBO [Home Box Office]` (first mention only)
+- Subsequent mentions remain as just `HBO`
+- Excludes common words: TV, US, OK, AM, PM, single letters
+
+**Built-in acronyms include:** HBO, NPR, PBS, FCC, CBS, NBC, ABC, BBC, CNN, ESPN, MTV, MLB, NFL, NBA, NHL, NCAA
+
+**To add new acronyms:**
+1. Open `index.html` in a text editor
+2. Find the `ACRONYMS` object (near the top of the `<script>` section)
+3. Add: `"FTC": "Federal Trade Commission",`
+4. Save and refresh browser
+
 ## Hard-Coded Rules
 
 The following corrections are applied automatically:

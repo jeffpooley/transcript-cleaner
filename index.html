@@ -262,6 +262,33 @@
             "philadelphia": "Philadelphia"
         };
 
+        // Built-in acronyms dictionary - adds [Full Name] on first mention
+        // Edit this object to add new acronyms as you encounter them
+        const ACRONYMS = {
+            "HBO": "Home Box Office",
+            "NPR": "National Public Radio",
+            "PBS": "Public Broadcasting Service",
+            "FCC": "Federal Communications Commission",
+            "CBS": "Columbia Broadcasting System",
+            "NBC": "National Broadcasting Company",
+            "ABC": "American Broadcasting Company",
+            "BBC": "British Broadcasting Corporation",
+            "CNN": "Cable News Network",
+            "ESPN": "Entertainment and Sports Programming Network",
+            "MTV": "Music Television",
+            "MLB": "Major League Baseball",
+            "NFL": "National Football League",
+            "NBA": "National Basketball Association",
+            "NHL": "National Hockey League",
+            "NCAA": "National Collegiate Athletic Association"
+        };
+
+        // Acronyms to exclude from expansion (too common or single letters)
+        const ACRONYM_EXCLUSIONS = ['TV', 'US', 'UK', 'OK', 'AM', 'PM', 'A', 'I'];
+
+        // Track which acronyms have been expanded in current transcript
+        let expandedAcronyms = new Set();
+
         const vttFileInput = document.getElementById('vttFile');
         const dictFileInput = document.getElementById('dictFile');
         const processBtn = document.getElementById('processBtn');
@@ -366,6 +393,44 @@
             return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.padStart(6, '0')}`;
         }
 
+        function expandAcronyms(text, changes) {
+            // Extract speaker label if present (don't expand acronyms in speaker names)
+            const speakerMatch = text.match(/^([A-Z0-9][A-Z0-9\s]*?):\s*/);
+            let speakerLabel = '';
+            let content = text;
+
+            if (speakerMatch) {
+                speakerLabel = speakerMatch[0];
+                content = text.substring(speakerMatch[0].length);
+            }
+
+            // Find all-caps words (potential acronyms)
+            const acronymRegex = /\b([A-Z]{2,})\b/g;
+            let match;
+
+            while ((match = acronymRegex.exec(content)) !== null) {
+                const acronym = match[1];
+
+                // Skip if already expanded, in exclusions, or not in dictionary
+                if (expandedAcronyms.has(acronym) ||
+                    ACRONYM_EXCLUSIONS.includes(acronym) ||
+                    !ACRONYMS[acronym]) {
+                    continue;
+                }
+
+                // Expand the acronym on first mention
+                const expansion = ACRONYMS[acronym];
+                const expandedForm = `${acronym} [${expansion}]`;
+                content = content.replace(new RegExp(`\\b${acronym}\\b`, 'g'), expandedForm);
+
+                // Mark as expanded
+                expandedAcronyms.add(acronym);
+                changes.acronymsExpanded = (changes.acronymsExpanded || 0) + 1;
+            }
+
+            return speakerLabel + content;
+        }
+
         function applyTextCorrections(text, changes) {
             let corrected = text;
 
@@ -398,6 +463,9 @@
                     corrected = corrected.replace(regex, formal);
                 }
             }
+
+            // Expand acronyms (first mention only)
+            corrected = expandAcronyms(corrected, changes);
 
             // Replace double hyphens with em-dash (removing spaces on either side)
             const emDashMatches = corrected.match(/\s*--\s*/g);
@@ -565,10 +633,14 @@
         function processTranscript() {
             if (!vttContent) return;
 
+            // Reset expanded acronyms for new transcript
+            expandedAcronyms.clear();
+
             const changes = {
                 dictionaryReplacements: 0,
                 fillerWordsRemoved: 0,
                 colloquialismReplacements: 0,
+                acronymsExpanded: 0,
                 emDashReplacements: 0,
                 timestampBlocks: 0,
                 segmentsSplit: 0
@@ -604,12 +676,14 @@ Changes Applied:
 - Dictionary substitutions: ${changes.dictionaryReplacements}
 - Filler words removed: ${changes.fillerWordsRemoved}
 - Colloquialisms replaced: ${changes.colloquialismReplacements}
+- Acronyms expanded: ${changes.acronymsExpanded}
 - Em-dashes replaced: ${changes.emDashReplacements}
 - Original cue blocks: ${changes.originalCues}
 - New timestamp blocks: ${changes.timestampBlocks}
 - Segments restructured: ${changes.segmentsSplit}
 
-Dictionary entries used: ${Object.keys(dictionary).length}
+Dictionary entries: ${Object.keys(dictionary).length}
+Acronym entries: ${Object.keys(ACRONYMS).length}
 `;
 
                 // Display results
@@ -693,6 +767,7 @@ Dictionary entries used: ${Object.keys(dictionary).length}
                     <li>Dictionary substitutions: ${changes.dictionaryReplacements}</li>
                     <li>Filler words removed: ${changes.fillerWordsRemoved}</li>
                     <li>Colloquialisms replaced: ${changes.colloquialismReplacements}</li>
+                    <li>Acronyms expanded: ${changes.acronymsExpanded}</li>
                     <li>Em-dashes replaced: ${changes.emDashReplacements}</li>
                     <li>Original cue blocks: ${changes.originalCues}</li>
                     <li>New timestamp blocks: ${changes.timestampBlocks}</li>
