@@ -295,16 +295,6 @@
             <input type="file" id="vttFile" accept=".vtt">
         </div>
 
-        <div class="file-input-group">
-            <label for="dictFile">Upload Custom Dictionary (optional - built-in dictionary already loaded):</label>
-            <input type="file" id="dictFile" accept=".json">
-        </div>
-
-        <div class="file-input-group">
-            <label for="acronymsFile">Upload Custom Acronyms (optional - built-in acronyms already loaded):</label>
-            <input type="file" id="acronymsFile" accept=".json">
-        </div>
-
         <button id="processBtn" disabled>Process Transcript</button>
     </div>
 
@@ -411,8 +401,6 @@
         let expandedAcronyms = new Set();
 
         const vttFileInput = document.getElementById('vttFile');
-        const dictFileInput = document.getElementById('dictFile');
-        const acronymsFileInput = document.getElementById('acronymsFile');
         const processBtn = document.getElementById('processBtn');
         const resultsDiv = document.getElementById('results');
         const reportDiv = document.getElementById('report');
@@ -628,8 +616,6 @@
         };
 
         vttFileInput.addEventListener('change', handleVTTFile);
-        dictFileInput.addEventListener('change', handleDictFile);
-        acronymsFileInput.addEventListener('change', handleAcronymsFile);
         processBtn.addEventListener('click', processTranscript);
         downloadBtn.addEventListener('click', downloadCorrectedVTT);
         downloadReportBtn.addEventListener('click', downloadReport);
@@ -654,34 +640,6 @@
                 originalFilename = file.name;
                 vttContent = await file.text();
                 processBtn.disabled = false;
-            }
-        }
-
-        async function handleDictFile(event) {
-            const file = event.target.files[0];
-            if (file) {
-                try {
-                    const text = await file.text();
-                    dictionary = JSON.parse(text);
-                    console.log('Dictionary loaded:', Object.keys(dictionary).length, 'entries');
-                } catch (error) {
-                    alert('Error loading dictionary file: ' + error.message);
-                    dictionary = {};
-                }
-            }
-        }
-
-        async function handleAcronymsFile(event) {
-            const file = event.target.files[0];
-            if (file) {
-                try {
-                    const text = await file.text();
-                    ACRONYMS = JSON.parse(text);
-                    console.log('Acronyms loaded:', Object.keys(ACRONYMS).length, 'entries');
-                } catch (error) {
-                    alert('Error loading acronyms file: ' + error.message);
-                    ACRONYMS = {};
-                }
             }
         }
 
