@@ -206,7 +206,7 @@
         </div>
 
         <div class="file-input-group">
-            <label for="dictFile">Select Dictionary File (optional):</label>
+            <label for="dictFile">Upload Custom Dictionary (optional - built-in dictionary already loaded):</label>
             <input type="file" id="dictFile" accept=".json">
         </div>
 
@@ -235,10 +235,21 @@
 
     <script>
         let vttContent = null;
-        let dictionary = {};
         let correctedVTT = null;
         let changeReport = null;
         let originalFilename = '';
+
+        // Built-in dictionary for communication research oral histories
+        // Edit this object to add/remove/modify entries
+        let dictionary = {
+            "gobner": "Gerbner",
+            "gerbner": "Gerbner",
+            "terry gross": "Terry Gross",
+            "teri gross": "Terry Gross",
+            "npr": "NPR",
+            "pensylvania": "Pennsylvania",
+            "philadelphia": "Philadelphia"
+        };
 
         const vttFileInput = document.getElementById('vttFile');
         const dictFileInput = document.getElementById('dictFile');

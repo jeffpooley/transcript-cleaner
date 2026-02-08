@@ -26,14 +26,23 @@ A web-based tool for cleaning and restructuring VTT transcripts from oral histor
 
 1. Open `index.html` in your web browser (Chrome, Safari, Firefox, etc.)
 2. Select your VTT transcript file
-3. Optionally select a dictionary JSON file (see format below)
-4. Click "Process Transcript"
-5. Review the changes in the side-by-side view
-6. Download the corrected VTT and report
+3. Click "Process Transcript" (dictionary is already built-in!)
+4. Review the changes in the side-by-side view
+5. Download the corrected VTT and report
+
+### Built-in Dictionary
+
+The app includes a built-in dictionary for communication research oral histories. To edit the dictionary:
+1. Open `index.html` in a text editor
+2. Find the `dictionary` object near the top of the `<script>` section
+3. Add/remove/modify entries as needed
+4. Save the file
+
+**Optional:** You can still upload a custom dictionary JSON file to override the built-in one for specific projects.
 
 ### Dictionary Format
 
-Create a JSON file with phonetic variations mapped to correct spellings:
+The dictionary uses this format (whether built-in or uploaded):
 
 ```json
 {
@@ -49,7 +58,7 @@ Create a JSON file with phonetic variations mapped to correct spellings:
 - All matching is case-insensitive
 - Whole word matching only (won't replace partial matches)
 - Add multiple entries for common phonetic variations
-- Build your dictionary incrementally as you process files
+- The built-in dictionary is perfect for recurring names across multiple interviews
 
 ## Requirements
 
