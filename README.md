@@ -88,6 +88,11 @@ The following corrections are applied automatically:
   - "gonna" → "going to"
   - "gotta" → "got to"
   - "'em" → "them"
+- Remove quotation marks and handle formatting:
+  - `He said "this is a quote"` → `He said, This is a quote` (adds comma, capitalizes)
+  - `He said, "this is a quote"` → `He said, This is a quote` (keeps comma, capitalizes)
+  - `"The whole sentence"` → `The whole sentence` (capitalizes)
+  - Handles both straight (`"`) and curly (`""`) quotes
 - Replace double hyphens (--) with em-dashes (—), removing spaces on either side
 - Clean up extra whitespace
 

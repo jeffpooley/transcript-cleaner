@@ -467,6 +467,36 @@
             // Expand acronyms (first mention only)
             corrected = expandAcronyms(corrected, changes);
 
+            // Remove quotation marks and handle capitalization/commas
+            const beforeQuotes = corrected;
+            // Handle both straight quotes (") and curly quotes ("")
+            // Pattern: word + optional punctuation + space + quote + text + closing quote
+            corrected = corrected.replace(/(\w)(\s+)([""])([^"""]+)([""])/g, (match, word, space, openQuote, content, closeQuote) => {
+                // Capitalize first letter of quoted content
+                const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                // Add comma after word
+                return word + ',' + space + capitalized;
+            });
+
+            // Pattern: word + comma + space + quote + text + closing quote
+            corrected = corrected.replace(/(\w)(,\s+)([""])([^"""]+)([""])/g, (match, word, commaSpace, openQuote, content, closeQuote) => {
+                // Capitalize first letter of quoted content
+                const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                // Keep existing comma
+                return word + commaSpace + capitalized;
+            });
+
+            // Pattern: quote at start of text or after punctuation
+            corrected = corrected.replace(/(^|[.!?]\s+)([""])([^"""]+)([""])/g, (match, prefix, openQuote, content, closeQuote) => {
+                // Capitalize first letter of quoted content
+                const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                return prefix + capitalized;
+            });
+
+            if (corrected !== beforeQuotes) {
+                changes.quotesRemoved = (changes.quotesRemoved || 0) + (beforeQuotes.match(/[""]|["]/g) || []).length / 2;
+            }
+
             // Replace double hyphens with em-dash (removing spaces on either side)
             const emDashMatches = corrected.match(/\s*--\s*/g);
             if (emDashMatches) {
@@ -641,6 +671,7 @@
                 fillerWordsRemoved: 0,
                 colloquialismReplacements: 0,
                 acronymsExpanded: 0,
+                quotesRemoved: 0,
                 emDashReplacements: 0,
                 timestampBlocks: 0,
                 segmentsSplit: 0
@@ -677,6 +708,7 @@ Changes Applied:
 - Filler words removed: ${changes.fillerWordsRemoved}
 - Colloquialisms replaced: ${changes.colloquialismReplacements}
 - Acronyms expanded: ${changes.acronymsExpanded}
+- Quotation marks removed: ${changes.quotesRemoved}
 - Em-dashes replaced: ${changes.emDashReplacements}
 - Original cue blocks: ${changes.originalCues}
 - New timestamp blocks: ${changes.timestampBlocks}
@@ -768,6 +800,7 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                     <li>Filler words removed: ${changes.fillerWordsRemoved}</li>
                     <li>Colloquialisms replaced: ${changes.colloquialismReplacements}</li>
                     <li>Acronyms expanded: ${changes.acronymsExpanded}</li>
+                    <li>Quotation marks removed: ${changes.quotesRemoved}</li>
                     <li>Em-dashes replaced: ${changes.emDashReplacements}</li>
                     <li>Original cue blocks: ${changes.originalCues}</li>
                     <li>New timestamp blocks: ${changes.timestampBlocks}</li>
