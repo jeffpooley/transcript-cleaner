@@ -60,6 +60,7 @@ Create a JSON file with phonetic variations mapped to correct spellings:
 
 The following corrections are applied automatically:
 - Remove "uh" and "um" (with or without trailing commas)
+- Replace double hyphens (--) with em-dashes (—), removing spaces on either side
 - Clean up extra whitespace
 
 ## Future Enhancements

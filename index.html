@@ -351,6 +351,13 @@
                 }
             }
 
+            // Replace double hyphens with em-dash (removing spaces on either side)
+            const emDashMatches = corrected.match(/\s*--\s*/g);
+            if (emDashMatches) {
+                changes.emDashReplacements += emDashMatches.length;
+                corrected = corrected.replace(/\s*--\s*/g, '—');
+            }
+
             // Clean up extra spaces
             corrected = corrected.replace(/\s+/g, ' ').trim();
 
@@ -477,6 +484,7 @@
             const changes = {
                 dictionaryReplacements: 0,
                 fillerWordsRemoved: 0,
+                emDashReplacements: 0,
                 timestampBlocks: 0,
                 segmentsSplit: 0
             };
@@ -510,6 +518,7 @@ Original File: ${originalFilename}
 Changes Applied:
 - Dictionary substitutions: ${changes.dictionaryReplacements}
 - Filler words removed: ${changes.fillerWordsRemoved}
+- Em-dashes replaced: ${changes.emDashReplacements}
 - Original cue blocks: ${changes.originalCues}
 - New timestamp blocks: ${changes.timestampBlocks}
 - Segments restructured: ${changes.segmentsSplit}
@@ -533,6 +542,7 @@ Dictionary entries used: ${Object.keys(dictionary).length}
                 <ul>
                     <li>Dictionary substitutions: ${changes.dictionaryReplacements}</li>
                     <li>Filler words removed: ${changes.fillerWordsRemoved}</li>
+                    <li>Em-dashes replaced: ${changes.emDashReplacements}</li>
                     <li>Original cue blocks: ${changes.originalCues}</li>
                     <li>New timestamp blocks: ${changes.timestampBlocks}</li>
                     <li>Segments restructured: ${changes.segmentsSplit}</li>
