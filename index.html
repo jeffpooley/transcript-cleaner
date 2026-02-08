@@ -775,31 +775,29 @@
             // Remove quotation marks and handle capitalization/commas
             const beforeQuotes = corrected;
             // Handle both straight quotes (") and curly quotes ("")
-            // Pattern: word + optional punctuation + space + quote + text + closing quote
-            corrected = corrected.replace(/(\w)(\s+)([""])([^"""]+)([""])/g, (match, word, space, openQuote, content, closeQuote) => {
-                // Capitalize first letter of quoted content
+            // Using Unicode escapes for curly quotes: \u201C (") and \u201D (")
+
+            // Pattern: word + space + quote + text + closing quote (add comma)
+            corrected = corrected.replace(/(\w)(\s+)("|"|\u201C)(.+?)("|"|\u201D)/g, (match, word, space, openQuote, content, closeQuote) => {
                 const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
-                // Add comma after word
                 return word + ',' + space + capitalized;
             });
 
-            // Pattern: word + comma + space + quote + text + closing quote
-            corrected = corrected.replace(/(\w)(,\s+)([""])([^"""]+)([""])/g, (match, word, commaSpace, openQuote, content, closeQuote) => {
-                // Capitalize first letter of quoted content
+            // Pattern: word + comma + space + quote + text + closing quote (keep comma)
+            corrected = corrected.replace(/(\w)(,\s+)("|"|\u201C)(.+?)("|"|\u201D)/g, (match, word, commaSpace, openQuote, content, closeQuote) => {
                 const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
-                // Keep existing comma
                 return word + commaSpace + capitalized;
             });
 
             // Pattern: quote at start of text or after punctuation
-            corrected = corrected.replace(/(^|[.!?]\s+)([""])([^"""]+)([""])/g, (match, prefix, openQuote, content, closeQuote) => {
-                // Capitalize first letter of quoted content
+            corrected = corrected.replace(/(^|[.!?]\s+)("|"|\u201C)(.+?)("|"|\u201D)/g, (match, prefix, openQuote, content, closeQuote) => {
                 const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
                 return prefix + capitalized;
             });
 
             if (corrected !== beforeQuotes) {
-                changes.quotesRemoved = (changes.quotesRemoved || 0) + (beforeQuotes.match(/[""]|["]/g) || []).length / 2;
+                const quoteMatches = (corrected.match(/"|"|\u201C|\u201D/g) || []).length;
+                changes.quotesRemoved = (changes.quotesRemoved || 0) + Math.floor((beforeQuotes.length - corrected.length) / 2);
             }
 
             // Replace double hyphens with em-dash (removing spaces on either side)
