@@ -300,6 +300,11 @@
             <input type="file" id="dictFile" accept=".json">
         </div>
 
+        <div class="file-input-group">
+            <label for="acronymsFile">Upload Custom Acronyms (optional - built-in acronyms already loaded):</label>
+            <input type="file" id="acronymsFile" accept=".json">
+        </div>
+
         <button id="processBtn" disabled>Process Transcript</button>
     </div>
 
@@ -319,6 +324,25 @@
             </div>
 
             <button id="downloadDictBtn" class="secondary-button">Download Updated Dictionary</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <h3>Acronym Manager</h3>
+        <div class="dictionary-manager">
+            <div class="add-entry">
+                <input type="text" id="acronymShort" placeholder="Acronym (e.g., FTC)" />
+                <span class="arrow">→</span>
+                <input type="text" id="acronymFull" placeholder="Full name (e.g., Federal Trade Commission)" />
+                <button id="addAcronymBtn">Add to Acronyms</button>
+            </div>
+
+            <div id="customAcronyms" class="custom-entries">
+                <h4>Custom Additions (<span id="acronymCount">0</span>)</h4>
+                <div id="acronymsList" class="entries-list"></div>
+            </div>
+
+            <button id="downloadAcronymsBtn" class="secondary-button">Download Updated Acronyms</button>
         </div>
     </div>
 
@@ -360,9 +384,8 @@
             "philadelphia": "Philadelphia"
         };
 
-        // Built-in acronyms dictionary - adds [Full Name] on first mention
-        // Edit this object to add new acronyms as you encounter them
-        const ACRONYMS = {
+        // Built-in acronyms dictionary - loaded from acronyms.json
+        let ACRONYMS = {
             "HBO": "Home Box Office",
             "NPR": "National Public Radio",
             "PBS": "Public Broadcasting Service",
@@ -389,6 +412,7 @@
 
         const vttFileInput = document.getElementById('vttFile');
         const dictFileInput = document.getElementById('dictFile');
+        const acronymsFileInput = document.getElementById('acronymsFile');
         const processBtn = document.getElementById('processBtn');
         const resultsDiv = document.getElementById('results');
         const reportDiv = document.getElementById('report');
@@ -404,6 +428,14 @@
         const downloadDictBtn = document.getElementById('downloadDictBtn');
         const entriesList = document.getElementById('entriesList');
         const entryCount = document.getElementById('entryCount');
+
+        // Acronym manager elements
+        const acronymShortInput = document.getElementById('acronymShort');
+        const acronymFullInput = document.getElementById('acronymFull');
+        const addAcronymBtn = document.getElementById('addAcronymBtn');
+        const downloadAcronymsBtn = document.getElementById('downloadAcronymsBtn');
+        const acronymsList = document.getElementById('acronymsList');
+        const acronymCount = document.getElementById('acronymCount');
 
         // Load custom dictionary entries from localStorage
         function loadCustomEntries() {
@@ -491,9 +523,99 @@
             URL.revokeObjectURL(url);
         }
 
+        // Acronym management functions
+        function loadCustomAcronyms() {
+            const stored = localStorage.getItem('customAcronyms');
+            return stored ? JSON.parse(stored) : {};
+        }
+
+        function saveCustomAcronyms(acronyms) {
+            localStorage.setItem('customAcronyms', JSON.stringify(acronyms));
+        }
+
+        function getMergedAcronyms() {
+            const customAcronyms = loadCustomAcronyms();
+            return { ...ACRONYMS, ...customAcronyms };
+        }
+
+        function updateAcronymsList() {
+            const customAcronyms = loadCustomAcronyms();
+            const count = Object.keys(customAcronyms).length;
+            acronymCount.textContent = count;
+
+            if (count === 0) {
+                acronymsList.innerHTML = '<p style="color: #999; font-size: 13px;">No custom additions yet</p>';
+                return;
+            }
+
+            acronymsList.innerHTML = '';
+            for (const [short, full] of Object.entries(customAcronyms)) {
+                const item = document.createElement('div');
+                item.className = 'entry-item';
+                item.innerHTML = `
+                    <span class="entry-text">"${short}" → "${full}"</span>
+                    <button class="entry-delete" data-key="${short}">Delete</button>
+                `;
+                acronymsList.appendChild(item);
+            }
+
+            // Add delete handlers
+            document.querySelectorAll('#acronymsList .entry-delete').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const key = e.target.dataset.key;
+                    const customAcronyms = loadCustomAcronyms();
+                    delete customAcronyms[key];
+                    saveCustomAcronyms(customAcronyms);
+                    updateAcronymsList();
+                    // Update the working ACRONYMS
+                    ACRONYMS = getMergedAcronyms();
+                });
+            });
+        }
+
+        function addAcronym() {
+            const short = acronymShortInput.value.trim().toUpperCase();
+            const full = acronymFullInput.value.trim();
+
+            if (!short || !full) {
+                alert('Please enter both acronym and full name');
+                return;
+            }
+
+            const customAcronyms = loadCustomAcronyms();
+            customAcronyms[short] = full;
+            saveCustomAcronyms(customAcronyms);
+
+            // Clear inputs
+            acronymShortInput.value = '';
+            acronymFullInput.value = '';
+
+            // Update display and working ACRONYMS
+            updateAcronymsList();
+            ACRONYMS = getMergedAcronyms();
+
+            alert(`Added: "${short}" → "${full}"`);
+        }
+
+        function downloadMergedAcronyms() {
+            const merged = getMergedAcronyms();
+            const json = JSON.stringify(merged, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'acronyms.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         // Initialize dictionary with custom entries
         dictionary = getMergedDictionary();
         updateEntriesList();
+
+        // Initialize ACRONYMS with custom entries
+        ACRONYMS = getMergedAcronyms();
+        updateAcronymsList();
 
         // Hard-coded filler words to remove
         const FILLER_WORDS = ['uh', 'um', 'uh,', 'um,'];
@@ -507,15 +629,23 @@
 
         vttFileInput.addEventListener('change', handleVTTFile);
         dictFileInput.addEventListener('change', handleDictFile);
+        acronymsFileInput.addEventListener('change', handleAcronymsFile);
         processBtn.addEventListener('click', processTranscript);
         downloadBtn.addEventListener('click', downloadCorrectedVTT);
         downloadReportBtn.addEventListener('click', downloadReport);
         addEntryBtn.addEventListener('click', addDictionaryEntry);
         downloadDictBtn.addEventListener('click', downloadMergedDictionary);
+        addAcronymBtn.addEventListener('click', addAcronym);
+        downloadAcronymsBtn.addEventListener('click', downloadMergedAcronyms);
 
         // Allow Enter key to add dictionary entry
         correctWordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') addDictionaryEntry();
+        });
+
+        // Allow Enter key to add acronym
+        acronymFullInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addAcronym();
         });
 
         async function handleVTTFile(event) {
@@ -537,6 +667,20 @@
                 } catch (error) {
                     alert('Error loading dictionary file: ' + error.message);
                     dictionary = {};
+                }
+            }
+        }
+
+        async function handleAcronymsFile(event) {
+            const file = event.target.files[0];
+            if (file) {
+                try {
+                    const text = await file.text();
+                    ACRONYMS = JSON.parse(text);
+                    console.log('Acronyms loaded:', Object.keys(ACRONYMS).length, 'entries');
+                } catch (error) {
+                    alert('Error loading acronyms file: ' + error.message);
+                    ACRONYMS = {};
                 }
             }
         }

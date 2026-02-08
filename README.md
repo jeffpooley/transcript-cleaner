@@ -74,11 +74,26 @@ The app automatically expands acronyms on first mention by adding the full name 
 
 **Built-in acronyms include:** HBO, NPR, PBS, FCC, CBS, NBC, ABC, BBC, CNN, ESPN, MTV, MLB, NFL, NBA, NHL, NCAA
 
-**To add new acronyms:**
-1. Open `index.html` in a text editor
-2. Find the `ACRONYMS` object (near the top of the `<script>` section)
-3. Add: `"FTC": "Federal Trade Commission",`
-4. Save and refresh browser
+### Acronym Manager (NEW!)
+
+Add new acronyms via the UI - no file editing needed!
+
+**Workflow:**
+1. In the "Acronym Manager" section, enter:
+   - Acronym (e.g., "FTC")
+   - Full name (e.g., "Federal Trade Commission")
+2. Click "Add to Acronyms" (or press Enter)
+3. Custom additions are saved to browser localStorage
+4. When done, click "Download Updated Acronyms"
+5. Save as `acronyms.json` in the app folder
+6. Replace the old `acronyms.json` file
+7. Refresh browser to load updated acronyms
+
+**Features:**
+- View all custom additions
+- Delete unwanted entries
+- Works immediately (no refresh needed)
+- Download merged acronyms (built-in + custom)
 
 ## Hard-Coded Rules
 

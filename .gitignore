@@ -14,5 +14,6 @@ Thumbs.db
 *.pdf
 test_*
 
-# Keep the example dictionary
+# Keep the example dictionary and acronyms
 !dictionary.json
+!acronyms.json
