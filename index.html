@@ -504,6 +504,16 @@
                 corrected = corrected.replace(/\s*--\s*/g, '—');
             }
 
+            // Capitalize first word after speaker label (unless preceded by em-dash or other punctuation)
+            corrected = corrected.replace(/^([A-Z0-9][A-Z0-9\s]*?:\s+)([a-z])/m, (match, label, firstChar) => {
+                // Check if there's punctuation between label and word
+                const textAfterLabel = corrected.substring(match.index + label.length);
+                if (textAfterLabel.startsWith('—') || textAfterLabel.match(/^[.!?;,—]/)) {
+                    return match; // Don't capitalize if punctuation follows
+                }
+                return label + firstChar.toUpperCase();
+            });
+
             // Clean up extra spaces
             corrected = corrected.replace(/\s+/g, ' ').trim();
 

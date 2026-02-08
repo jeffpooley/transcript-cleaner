@@ -93,6 +93,10 @@ The following corrections are applied automatically:
   - `He said, "this is a quote"` → `He said, This is a quote` (keeps comma, capitalizes)
   - `"The whole sentence"` → `The whole sentence` (capitalizes)
   - Handles both straight (`"`) and curly (`""`) quotes
+- Capitalize first word after speaker labels:
+  - `GROSS: hello there` → `GROSS: Hello there`
+  - `Q1: the answer` → `Q1: The answer`
+  - Exception: `GROSS: —and that` stays lowercase (after em-dash)
 - Replace double hyphens (--) with em-dashes (—), removing spaces on either side
 - Clean up extra whitespace
 
