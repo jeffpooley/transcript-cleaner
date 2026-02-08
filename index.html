@@ -253,6 +253,13 @@
         // Hard-coded filler words to remove
         const FILLER_WORDS = ['uh', 'um', 'uh,', 'um,'];
 
+        // Hard-coded colloquialism replacements
+        const COLLOQUIALISMS = {
+            'gonna': 'going to',
+            'gotta': 'got to',
+            "'em": 'them'
+        };
+
         vttFileInput.addEventListener('change', handleVTTFile);
         dictFileInput.addEventListener('change', handleDictFile);
         processBtn.addEventListener('click', processTranscript);
@@ -348,6 +355,16 @@
                 if (matches) {
                     changes.fillerWordsRemoved += matches.length;
                     corrected = corrected.replace(regex, '');
+                }
+            }
+
+            // Replace colloquialisms
+            for (const [colloquial, formal] of Object.entries(COLLOQUIALISMS)) {
+                const regex = new RegExp('\\b' + colloquial.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
+                const matches = corrected.match(regex);
+                if (matches) {
+                    changes.colloquialismReplacements += matches.length;
+                    corrected = corrected.replace(regex, formal);
                 }
             }
 
@@ -484,6 +501,7 @@
             const changes = {
                 dictionaryReplacements: 0,
                 fillerWordsRemoved: 0,
+                colloquialismReplacements: 0,
                 emDashReplacements: 0,
                 timestampBlocks: 0,
                 segmentsSplit: 0
@@ -518,6 +536,7 @@ Original File: ${originalFilename}
 Changes Applied:
 - Dictionary substitutions: ${changes.dictionaryReplacements}
 - Filler words removed: ${changes.fillerWordsRemoved}
+- Colloquialisms replaced: ${changes.colloquialismReplacements}
 - Em-dashes replaced: ${changes.emDashReplacements}
 - Original cue blocks: ${changes.originalCues}
 - New timestamp blocks: ${changes.timestampBlocks}
@@ -542,6 +561,7 @@ Dictionary entries used: ${Object.keys(dictionary).length}
                 <ul>
                     <li>Dictionary substitutions: ${changes.dictionaryReplacements}</li>
                     <li>Filler words removed: ${changes.fillerWordsRemoved}</li>
+                    <li>Colloquialisms replaced: ${changes.colloquialismReplacements}</li>
                     <li>Em-dashes replaced: ${changes.emDashReplacements}</li>
                     <li>Original cue blocks: ${changes.originalCues}</li>
                     <li>New timestamp blocks: ${changes.timestampBlocks}</li>

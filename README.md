@@ -60,6 +60,10 @@ Create a JSON file with phonetic variations mapped to correct spellings:
 
 The following corrections are applied automatically:
 - Remove "uh" and "um" (with or without trailing commas)
+- Replace colloquialisms:
+  - "gonna" → "going to"
+  - "gotta" → "got to"
+  - "'em" → "them"
 - Replace double hyphens (--) with em-dashes (—), removing spaces on either side
 - Clean up extra whitespace
 
