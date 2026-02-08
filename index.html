@@ -727,55 +727,93 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
             }
         }
 
-        function highlightDiff(original, corrected) {
-            // Simple word-level diff highlighting
-            // Split into lines for better comparison
-            const originalLines = original.split('\n');
-            const correctedLines = corrected.split('\n');
+        function extractTextFromVTT(vttContent) {
+            // Extract only the spoken text, ignoring timestamps and cue numbers
+            const lines = vttContent.split('\n');
+            const textLines = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                // Skip empty lines, WEBVTT header, cue numbers, and timestamp lines
+                if (line &&
+                    line !== 'WEBVTT' &&
+                    !line.match(/^\d+$/) &&
+                    !line.includes('-->')) {
+                    textLines.push(line);
+                }
+            }
+
+            return textLines.join('\n');
+        }
+
+        function highlightDiff(originalVTT, correctedVTT) {
+            // Extract just the text content from both VTT files
+            const originalText = extractTextFromVTT(originalVTT);
+            const correctedText = extractTextFromVTT(correctedVTT);
+
+            // Split into words (preserving spaces and punctuation)
+            const originalWords = originalText.split(/(\s+|[.,;:!?])/);
+            const correctedWords = correctedText.split(/(\s+|[.,;:!?])/);
 
             let highlightedOriginal = '';
             let highlightedCorrected = '';
 
-            const maxLines = Math.max(originalLines.length, correctedLines.length);
+            // Use a simple longest common subsequence approach
+            let i = 0, j = 0;
 
-            for (let i = 0; i < maxLines; i++) {
-                const origLine = originalLines[i] || '';
-                const corrLine = correctedLines[i] || '';
+            while (i < originalWords.length || j < correctedWords.length) {
+                const origWord = originalWords[i] || '';
+                const corrWord = correctedWords[j] || '';
 
-                if (origLine === corrLine) {
-                    // Lines are identical
-                    highlightedOriginal += escapeHtml(origLine) + '\n';
-                    highlightedCorrected += escapeHtml(corrLine) + '\n';
+                if (origWord === corrWord) {
+                    // Words match
+                    highlightedOriginal += escapeHtml(origWord);
+                    highlightedCorrected += escapeHtml(corrWord);
+                    i++;
+                    j++;
                 } else {
-                    // Lines differ - do word-level comparison
-                    const origWords = origLine.split(/(\s+)/);
-                    const corrWords = corrLine.split(/(\s+)/);
+                    // Words differ - look ahead to see if we can find a match
+                    let foundMatch = false;
 
-                    let origHighlighted = '';
-                    let corrHighlighted = '';
-
-                    // Simple approach: highlight words that don't match
-                    const maxWords = Math.max(origWords.length, corrWords.length);
-
-                    for (let j = 0; j < maxWords; j++) {
-                        const origWord = origWords[j] || '';
-                        const corrWord = corrWords[j] || '';
-
-                        if (origWord === corrWord) {
-                            origHighlighted += escapeHtml(origWord);
-                            corrHighlighted += escapeHtml(corrWord);
-                        } else {
-                            if (origWord) {
-                                origHighlighted += `<span class="diff-deleted">${escapeHtml(origWord)}</span>`;
+                    // Check if original word appears later in corrected (insertion)
+                    for (let k = j + 1; k < Math.min(j + 5, correctedWords.length); k++) {
+                        if (originalWords[i] === correctedWords[k]) {
+                            // Found a match - corrected has insertions
+                            while (j < k) {
+                                highlightedCorrected += `<span class="diff-added">${escapeHtml(correctedWords[j])}</span>`;
+                                j++;
                             }
-                            if (corrWord) {
-                                corrHighlighted += `<span class="diff-added">${escapeHtml(corrWord)}</span>`;
+                            foundMatch = true;
+                            break;
+                        }
+                    }
+
+                    if (!foundMatch) {
+                        // Check if corrected word appears later in original (deletion)
+                        for (let k = i + 1; k < Math.min(i + 5, originalWords.length); k++) {
+                            if (correctedWords[j] === originalWords[k]) {
+                                // Found a match - original has deletions
+                                while (i < k) {
+                                    highlightedOriginal += `<span class="diff-deleted">${escapeHtml(originalWords[i])}</span>`;
+                                    i++;
+                                }
+                                foundMatch = true;
+                                break;
                             }
                         }
                     }
 
-                    highlightedOriginal += origHighlighted + '\n';
-                    highlightedCorrected += corrHighlighted + '\n';
+                    if (!foundMatch) {
+                        // No match found - treat as substitution
+                        if (origWord) {
+                            highlightedOriginal += `<span class="diff-deleted">${escapeHtml(origWord)}</span>`;
+                            i++;
+                        }
+                        if (corrWord) {
+                            highlightedCorrected += `<span class="diff-added">${escapeHtml(corrWord)}</span>`;
+                            j++;
+                        }
+                    }
                 }
             }
 
