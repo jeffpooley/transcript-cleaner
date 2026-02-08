@@ -381,118 +381,147 @@
             return corrected;
         }
 
-        function findSentenceBreak(text, targetPosition) {
-            // Try to find a sentence ending near the target position
-            const searchWindow = 100; // Look 100 chars before and after
-            const start = Math.max(0, targetPosition - searchWindow);
-            const end = Math.min(text.length, targetPosition + searchWindow);
-            const segment = text.substring(start, end);
+        function extractSpeaker(text) {
+            // Extract speaker name from text like "GROSS: Hello there"
+            const match = text.match(/^([A-Z][A-Z\s]+?):\s*/);
+            return match ? match[1].trim() : null;
+        }
 
-            // Look for period, question mark, or exclamation
-            const sentenceEndings = ['. ', '? ', '! '];
-            let bestBreak = -1;
-            let minDistance = Infinity;
+        function filterSpeakerChanges(segments) {
+            // Merge consecutive segments from the same speaker
+            const result = [];
+            let currentSegment = null;
 
-            for (const ending of sentenceEndings) {
-                let pos = segment.indexOf(ending);
-                while (pos !== -1) {
-                    const actualPos = start + pos + ending.length;
-                    const distance = Math.abs(actualPos - targetPosition);
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        bestBreak = actualPos;
+            for (const segment of segments) {
+                const speaker = extractSpeaker(segment.text);
+
+                if (!currentSegment || currentSegment.speaker !== speaker) {
+                    // Speaker changed, save previous and start new
+                    if (currentSegment) {
+                        result.push(currentSegment);
                     }
-                    pos = segment.indexOf(ending, pos + 1);
+                    currentSegment = {
+                        speaker: speaker,
+                        text: segment.text,
+                        startTime: segment.startTime,
+                        endTime: segment.endTime,
+                        startMs: timeToSeconds(segment.startTime) * 1000,
+                        endMs: timeToSeconds(segment.endTime) * 1000
+                    };
+                } else {
+                    // Same speaker, merge text and extend time
+                    currentSegment.text += ' ' + segment.text;
+                    currentSegment.endTime = segment.endTime;
+                    currentSegment.endMs = timeToSeconds(segment.endTime) * 1000;
                 }
             }
 
-            // If we found a good break, use it; otherwise use target position
-            return bestBreak !== -1 ? bestBreak : targetPosition;
+            // Add final segment
+            if (currentSegment) {
+                result.push(currentSegment);
+            }
+
+            return result;
+        }
+
+        function splitTextIntoEqualChunks(text, numChunks) {
+            // Split into sentences first
+            const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+
+            if (sentences.length <= numChunks) {
+                // Fewer sentences than chunks needed, split by words
+                return splitTextByWords(text, numChunks);
+            }
+
+            // Distribute sentences evenly across chunks
+            const chunks = [];
+            const sentencesPerChunk = Math.ceil(sentences.length / numChunks);
+
+            for (let i = 0; i < numChunks; i++) {
+                const start = i * sentencesPerChunk;
+                const end = Math.min(start + sentencesPerChunk, sentences.length);
+                const chunk = sentences.slice(start, end).join('').trim();
+                if (chunk) {
+                    chunks.push(chunk);
+                }
+            }
+
+            return chunks.length > 0 ? chunks : [text];
+        }
+
+        function splitTextByWords(text, numChunks) {
+            const words = text.split(/\s+/);
+            const wordsPerChunk = Math.ceil(words.length / numChunks);
+            const chunks = [];
+
+            for (let i = 0; i < numChunks; i++) {
+                const start = i * wordsPerChunk;
+                const end = Math.min(start + wordsPerChunk, words.length);
+                const chunk = words.slice(start, end).join(' ').trim();
+                if (chunk) {
+                    chunks.push(chunk);
+                }
+            }
+
+            return chunks.length > 0 ? chunks : [text];
+        }
+
+        function splitLongSegments(segments) {
+            const result = [];
+            const maxDuration = 120000; // 2 minutes in milliseconds
+
+            for (const segment of segments) {
+                const duration = segment.endMs - segment.startMs;
+
+                if (duration <= maxDuration) {
+                    result.push(segment);
+                } else {
+                    // Calculate how many ~2-minute chunks we need
+                    const numChunks = Math.ceil(duration / maxDuration);
+
+                    // Split text into that many chunks
+                    const textChunks = splitTextIntoEqualChunks(segment.text, numChunks);
+
+                    // Assign 2 minutes (or remaining time) to each chunk
+                    textChunks.forEach((chunkText, index) => {
+                        const startMs = segment.startMs + (index * maxDuration);
+                        const endMs = Math.min(startMs + maxDuration, segment.endMs);
+
+                        result.push({
+                            speaker: segment.speaker,
+                            text: chunkText,
+                            startTime: secondsToTime(startMs / 1000),
+                            endTime: secondsToTime(endMs / 1000),
+                            startMs,
+                            endMs
+                        });
+                    });
+                }
+            }
+
+            return result;
         }
 
         function restructureTimestamps(cues) {
-            // Combine all text first
-            const fullText = cues.map(c => c.text).join('\n');
-            const startTime = cues[0].startTime;
-            const totalDuration = timeToSeconds(cues[cues.length - 1].endTime);
+            // First: Add speaker info and convert to segments with milliseconds
+            const segments = cues.map(cue => ({
+                text: cue.text,
+                startTime: cue.startTime,
+                endTime: cue.endTime
+            }));
 
-            // Split by speaker turns
-            const paragraphs = fullText.split('\n\n');
-            const newCues = [];
-            let currentTime = timeToSeconds(startTime);
+            // Second: Merge consecutive segments from same speaker
+            const merged = filterSpeakerChanges(segments);
 
-            for (const para of paragraphs) {
-                if (!para.trim()) continue;
+            // Third: Split any segments longer than 2 minutes
+            const split = splitLongSegments(merged);
 
-                // Check if this is a speaker turn (starts with NAME:)
-                const speakerMatch = para.match(/^([A-Z\s]+):\s*/);
-
-                if (speakerMatch) {
-                    const speakerText = para;
-                    const charCount = speakerText.length;
-
-                    // Estimate duration based on character count (rough approximation)
-                    // Average speaking rate: ~150 words/min = ~750 chars/min = ~12.5 chars/sec
-                    const estimatedDuration = charCount / 12.5;
-
-                    // If longer than 2 minutes (120 seconds), split it
-                    if (estimatedDuration > 120) {
-                        const numSegments = Math.ceil(estimatedDuration / 120);
-                        const segmentDuration = estimatedDuration / numSegments;
-                        const charsPerSegment = Math.floor(charCount / numSegments);
-
-                        let remainingText = speakerText;
-                        let segmentStart = currentTime;
-
-                        for (let i = 0; i < numSegments; i++) {
-                            const isLastSegment = (i === numSegments - 1);
-                            let segmentText;
-
-                            if (isLastSegment) {
-                                segmentText = remainingText;
-                            } else {
-                                const breakPoint = findSentenceBreak(remainingText, charsPerSegment);
-                                segmentText = remainingText.substring(0, breakPoint).trim();
-                                remainingText = remainingText.substring(breakPoint).trim();
-                            }
-
-                            const segmentEnd = segmentStart + segmentDuration;
-
-                            newCues.push({
-                                startTime: secondsToTime(segmentStart),
-                                endTime: secondsToTime(segmentEnd),
-                                text: segmentText
-                            });
-
-                            segmentStart = segmentEnd;
-                        }
-
-                        currentTime = segmentStart;
-                    } else {
-                        const endTime = currentTime + estimatedDuration;
-                        newCues.push({
-                            startTime: secondsToTime(currentTime),
-                            endTime: secondsToTime(endTime),
-                            text: speakerText
-                        });
-                        currentTime = endTime;
-                    }
-                } else {
-                    // Non-speaker text, add as-is with estimated timing
-                    const charCount = para.length;
-                    const estimatedDuration = charCount / 12.5;
-                    const endTime = currentTime + estimatedDuration;
-
-                    newCues.push({
-                        startTime: secondsToTime(currentTime),
-                        endTime: secondsToTime(endTime),
-                        text: para
-                    });
-                    currentTime = endTime;
-                }
-            }
-
-            return newCues;
+            // Convert back to cue format
+            return split.map(seg => ({
+                startTime: seg.startTime,
+                endTime: seg.endTime,
+                text: seg.text
+            }));
         }
 
         function processTranscript() {
