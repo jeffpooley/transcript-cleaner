@@ -308,8 +308,17 @@
                     i++;
                     let text = '';
                     while (i < lines.length && lines[i].trim() !== '') {
-                        text += (text ? '\n' : '') + lines[i];
+                        text += (text ? ' ' : '') + lines[i];
                         i++;
+                    }
+
+                    // Extract speaker from <v SPEAKER> tag and convert to SPEAKER: format
+                    const speakerMatch = text.match(/<v\s+([^>]+)>/);
+                    if (speakerMatch) {
+                        const speaker = speakerMatch[1].trim();
+                        // Remove the <v SPEAKER> tag and add SPEAKER: prefix
+                        text = text.replace(/<v\s+[^>]+>/, '').trim();
+                        text = `${speaker}: ${text}`;
                     }
 
                     cues.push({ startTime, endTime, text });
@@ -382,9 +391,15 @@
         }
 
         function extractSpeaker(text) {
-            // Extract speaker name from text like "GROSS: Hello there"
-            const match = text.match(/^([A-Z][A-Z\s]+?):\s*/);
+            // Extract speaker name from text like "GROSS: Hello there" or "Q1: Hello there"
+            // Match letters, numbers, and spaces before colon
+            const match = text.match(/^([A-Z0-9][A-Z0-9\s]*?):\s*/);
             return match ? match[1].trim() : null;
+        }
+
+        function removeSpeakerLabel(text) {
+            // Remove "SPEAKER: " from the beginning of text
+            return text.replace(/^[A-Z0-9][A-Z0-9\s]*?:\s*/, '').trim();
         }
 
         function filterSpeakerChanges(segments) {
@@ -402,15 +417,16 @@
                     }
                     currentSegment = {
                         speaker: speaker,
-                        text: segment.text,
+                        text: segment.text, // Keep full text with speaker label
                         startTime: segment.startTime,
                         endTime: segment.endTime,
                         startMs: timeToSeconds(segment.startTime) * 1000,
                         endMs: timeToSeconds(segment.endTime) * 1000
                     };
                 } else {
-                    // Same speaker, merge text and extend time
-                    currentSegment.text += ' ' + segment.text;
+                    // Same speaker, merge text (without repeating speaker label)
+                    const textWithoutSpeaker = removeSpeakerLabel(segment.text);
+                    currentSegment.text += ' ' + textWithoutSpeaker;
                     currentSegment.endTime = segment.endTime;
                     currentSegment.endMs = timeToSeconds(segment.endTime) * 1000;
                 }
