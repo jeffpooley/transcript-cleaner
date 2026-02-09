@@ -615,9 +615,12 @@
                     console.warn('Could not load acronyms.json, using empty acronyms');
                 }
 
-                // Load custom entries from localStorage and merge
-                loadCustomDictionaryEntries();
-                loadCustomAcronyms();
+                // Merge custom entries from localStorage
+                const customDict = loadCustomEntries();
+                Object.assign(dictionary, customDict);
+
+                const customAcronyms = loadCustomAcronyms();
+                Object.assign(ACRONYMS, customAcronyms);
             } catch (error) {
                 console.error('Error loading dictionaries:', error);
             }
