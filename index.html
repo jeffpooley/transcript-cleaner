@@ -955,6 +955,13 @@
                 corrected = corrected.replace(/\s*--\s*/g, '—');
             }
 
+            // Replace ellipses with em-dash (removing spaces on either side)
+            const ellipsisMatches = corrected.match(/\s*(\.\.\.|…)\s*/g);
+            if (ellipsisMatches) {
+                changes.ellipsisReplacements = (changes.ellipsisReplacements || 0) + ellipsisMatches.length;
+                corrected = corrected.replace(/\s*(\.\.\.|…)\s*/g, '—');
+            }
+
             // Clean up extra spaces
             corrected = corrected.replace(/\s+/g, ' ').trim();
 
@@ -1199,6 +1206,7 @@ Changes Applied:
 - Proper names marked (first mention): ${changes.properNamesMarked || 0}
 - Quotation marks removed: ${changes.quotesRemoved}
 - Em-dashes replaced: ${changes.emDashReplacements}
+- Ellipses replaced with em-dashes: ${changes.ellipsisReplacements || 0}
 - Original cue blocks: ${changes.originalCues}
 - New timestamp blocks: ${changes.timestampBlocks}
 - Segments restructured: ${changes.segmentsSplit}
@@ -1349,6 +1357,7 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                     <li>Acronyms expanded: ${changes.acronymsExpanded}</li>
                     <li>Quotation marks removed: ${changes.quotesRemoved}</li>
                     <li>Em-dashes replaced: ${changes.emDashReplacements}</li>
+                    <li>Ellipses replaced with em-dashes: ${changes.ellipsisReplacements || 0}</li>
                     <li>Original cue blocks: ${changes.originalCues}</li>
                     <li>New timestamp blocks: ${changes.timestampBlocks}</li>
                     <li>Segments restructured: ${changes.segmentsSplit}</li>
