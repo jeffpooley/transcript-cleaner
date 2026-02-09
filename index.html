@@ -1355,9 +1355,12 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 highlightedCorrected = highlightedCorrected.replace(highlightRegex, (fullMatch, capturedGroup, offset, originalString) => {
                     const match = capturedGroup || fullMatch;
 
-                    // Skip speaker labels (words followed by colon)
-                    const afterMatch = originalString.substring(offset + match.length, offset + match.length + 10);
-                    if (afterMatch.match(/^:\s/)) {
+                    // Skip speaker labels (check if preceded by line break or start, and followed by colon)
+                    const beforeMatch = originalString.substring(Math.max(0, offset - 20), offset);
+                    const afterMatch = originalString.substring(offset + match.length, offset + match.length + 20);
+
+                    // Speaker labels are at start of line/text and followed by colon
+                    if ((beforeMatch.match(/(<br>|^)[^<]*$/) || offset === 0) && afterMatch.match(/^[^a-z]*:/)) {
                         return match; // Don't highlight speaker labels
                     }
 
