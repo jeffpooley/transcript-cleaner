@@ -1322,35 +1322,47 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
             }
 
             // Highlight proper names and acronyms in blue
-            // Build a single regex pattern for all terms to highlight
-            const termsToHighlight = [];
+            try {
+                // Build a single regex pattern for all terms to highlight
+                const termsToHighlight = [];
 
-            // Add proper names (deduplicated)
-            const uniqueNames = [...new Set(properNames)];
-            termsToHighlight.push(...uniqueNames);
+                // Add proper names (deduplicated)
+                const uniqueNames = [...new Set(properNames)];
+                termsToHighlight.push(...uniqueNames);
 
-            // Create pattern for unknown acronyms (will check during replacement)
-            const allTermsPattern = termsToHighlight
-                .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-                .join('|');
+                console.log(`Highlighting ${uniqueNames.length} proper names`);
 
-            // Also match potential acronyms (2+ uppercase letters)
-            const fullPattern = allTermsPattern ?
-                `\\b(${allTermsPattern}|[A-Z]{2,})\\b` :
-                `\\b([A-Z]{2,})\\b`;
+                // Create pattern for unknown acronyms (will check during replacement)
+                const allTermsPattern = termsToHighlight
+                    .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                    .join('|');
 
-            const highlightRegex = new RegExp(fullPattern, 'g');
+                // Also match potential acronyms (2+ uppercase letters)
+                const fullPattern = allTermsPattern ?
+                    `\\b(${allTermsPattern}|[A-Z]{2,})\\b` :
+                    `\\b([A-Z]{2,})\\b`;
 
-            highlightedCorrected = highlightedCorrected.replace(highlightRegex, (match) => {
-                // If it's an acronym, check if it should be highlighted
-                if (/^[A-Z]{2,}$/.test(match)) {
-                    if (ACRONYMS[match] || ACRONYM_EXCLUSIONS.includes(match)) {
-                        return match; // Don't highlight known acronyms
+                console.log(`Regex pattern length: ${fullPattern.length}`);
+
+                const highlightRegex = new RegExp(fullPattern, 'g');
+
+                let matchCount = 0;
+                highlightedCorrected = highlightedCorrected.replace(highlightRegex, (match) => {
+                    matchCount++;
+                    // If it's an acronym, check if it should be highlighted
+                    if (/^[A-Z]{2,}$/.test(match)) {
+                        if (ACRONYMS[match] || ACRONYM_EXCLUSIONS.includes(match)) {
+                            return match; // Don't highlight known acronyms
+                        }
                     }
-                }
-                // Highlight the term
-                return `<span class="proper-name">${escapeHtml(match)}</span>`;
-            });
+                    // Highlight the term
+                    return `<span class="proper-name">${escapeHtml(match)}</span>`;
+                });
+
+                console.log(`Total matches highlighted: ${matchCount}`);
+            } catch (error) {
+                console.error('Error during highlighting:', error);
+            }
 
             // Convert newlines to <br> tags for proper display
             highlightedOriginal = highlightedOriginal.replace(/\n/g, '<br>');
