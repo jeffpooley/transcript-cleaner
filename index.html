@@ -1334,6 +1334,7 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 termsToHighlight.push(...uniqueNames);
 
                 console.log(`Highlighting ${uniqueNames.length} proper names`);
+                console.log(`Text length to process: ${highlightedCorrected.length} characters`);
 
                 // Create pattern for unknown acronyms (will check during replacement)
                 const allTermsPattern = termsToHighlight
@@ -1350,19 +1351,33 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 const highlightRegex = new RegExp(fullPattern, 'g');
 
                 let matchCount = 0;
-                highlightedCorrected = highlightedCorrected.replace(highlightRegex, (match) => {
-                    matchCount++;
+                const matchedTerms = {};
+                highlightedCorrected = highlightedCorrected.replace(highlightRegex, (match, offset) => {
                     // If it's an acronym, check if it should be highlighted
                     if (/^[A-Z]{2,}$/.test(match)) {
                         if (ACRONYMS[match] || ACRONYM_EXCLUSIONS.includes(match)) {
                             return match; // Don't highlight known acronyms
                         }
                     }
+
+                    matchCount++;
+                    matchedTerms[match] = (matchedTerms[match] || 0) + 1;
+
+                    // Log every 10th match to track progress
+                    if (matchCount % 10 === 0) {
+                        console.log(`Match ${matchCount} at position ${offset}: "${match}"`);
+                    }
+
                     // Highlight the term
                     return `<span class="proper-name">${escapeHtml(match)}</span>`;
                 });
 
                 console.log(`Total matches highlighted: ${matchCount}`);
+                console.log('Top matched terms:', Object.entries(matchedTerms)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10)
+                    .map(([term, count]) => `${term} (${count}x)`)
+                    .join(', '));
             } catch (error) {
                 console.error('Error during highlighting:', error);
             }
