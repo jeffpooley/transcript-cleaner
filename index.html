@@ -1398,7 +1398,23 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
             // Show diff with highlighting
             const diff = highlightDiff(vttContent, correctedVTT);
             originalContentDiv.innerHTML = diff.original;
-            correctedContentDiv.innerHTML = diff.corrected;
+
+            // For corrected view: build clean text with blue highlighting only (no diff markup)
+            let correctedClean = extractTextFromVTT(correctedVTT);
+
+            // Remove {{brackets}} from proper names
+            correctedClean = correctedClean.replace(/\{\{([^}]+)\}\}/g, '$1');
+
+            // Convert to HTML with line breaks
+            correctedClean = escapeHtml(correctedClean)
+                .replace(/\n/g, '<br>');
+
+            // Now replace escaped markers with blue highlighting spans
+            correctedClean = correctedClean.replace(/«([^»]+)»/g, (match, term) => {
+                return `<span class="proper-name">${term}</span>`;
+            });
+
+            correctedContentDiv.innerHTML = correctedClean;
 
             // Show results section
             resultsDiv.classList.add('visible');
