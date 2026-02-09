@@ -1258,6 +1258,34 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 return name; // Remove brackets, keep just the name
             });
 
+            // Mark all proper names and acronyms with special markers BEFORE building diff
+            // Use Unicode characters unlikely to appear in text: « and »
+            const termsToHighlight = [...new Set(properNames)]; // deduplicate
+
+            // Also find acronyms in the text
+            const acronymMatches = correctedText.match(/\b[A-Z]{2,}\b/g) || [];
+            acronymMatches.forEach(acronym => {
+                if (!ACRONYMS[acronym] && !ACRONYM_EXCLUSIONS.includes(acronym)) {
+                    // Skip if it's a speaker label (followed by colon)
+                    const speakerPattern = new RegExp(`\\b${acronym}:\\s`, 'g');
+                    if (!correctedText.match(speakerPattern)) {
+                        termsToHighlight.push(acronym);
+                    }
+                }
+            });
+
+            // Sort by length (longest first) to avoid partial replacements
+            const sortedTerms = [...new Set(termsToHighlight)].sort((a, b) => b.length - a.length);
+
+            console.log(`Marking ${sortedTerms.length} terms for highlighting`);
+
+            // Mark each term with special markers
+            for (const term of sortedTerms) {
+                const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`\\b${escapedTerm}\\b`, 'g');
+                correctedText = correctedText.replace(regex, `«${term}»`);
+            }
+
             // Split into words (preserving spaces and punctuation)
             const originalWords = originalText.split(/(\s+|[.,;:!?])/);
             const correctedWords = correctedText.split(/(\s+|[.,;:!?])/);
@@ -1324,76 +1352,14 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 }
             }
 
-            // Highlight proper names and acronyms in blue
-            try {
-                // Build a single regex pattern for all terms to highlight
-                const termsToHighlight = [];
+            // Convert markers (« ») to blue highlighting spans
+            // Count markers before conversion
+            const markerCount = (highlightedCorrected.match(/«[^»]+»/g) || []).length;
+            console.log(`Converting ${markerCount} marked terms to blue highlighting`);
 
-                // Add proper names (deduplicated)
-                const uniqueNames = [...new Set(properNames)];
-                termsToHighlight.push(...uniqueNames);
-
-                console.log(`Highlighting ${uniqueNames.length} proper names`);
-                console.log(`Text length to process: ${highlightedCorrected.length} characters`);
-
-                // Create pattern for unknown acronyms (will check during replacement)
-                const allTermsPattern = termsToHighlight
-                    .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-                    .join('|');
-
-                // Also match potential acronyms (2+ uppercase letters)
-                const fullPattern = allTermsPattern ?
-                    `\\b(${allTermsPattern}|[A-Z]{2,})\\b` :
-                    `\\b([A-Z]{2,})\\b`;
-
-                console.log(`Regex pattern length: ${fullPattern.length}`);
-
-                const highlightRegex = new RegExp(fullPattern, 'g');
-
-                let matchCount = 0;
-                const matchedTerms = {};
-                highlightedCorrected = highlightedCorrected.replace(highlightRegex, (fullMatch, capturedGroup, offset, originalString) => {
-                    const match = capturedGroup || fullMatch;
-
-                    // Skip speaker labels (check if preceded by line break or start, and followed by colon)
-                    const beforeMatch = originalString.substring(Math.max(0, offset - 20), offset);
-                    const afterMatch = originalString.substring(offset + match.length, offset + match.length + 20);
-
-                    // Speaker labels are at start of line/text and followed by colon
-                    if ((beforeMatch.match(/(<br>|^)[^<]*$/) || offset === 0) && afterMatch.match(/^[^a-z]*:/)) {
-                        return match; // Don't highlight speaker labels
-                    }
-
-                    // If it's an acronym, check if it should be highlighted
-                    if (/^[A-Z]{2,}$/.test(match)) {
-                        if (ACRONYMS[match] || ACRONYM_EXCLUSIONS.includes(match)) {
-                            return match; // Don't highlight known acronyms
-                        }
-                    }
-
-                    matchCount++;
-                    matchedTerms[match] = (matchedTerms[match] || 0) + 1;
-
-                    // Log every 10th match to track progress
-                    if (matchCount % 10 === 0) {
-                        const textLength = originalString.length;
-                        const percentThrough = ((offset / textLength) * 100).toFixed(1);
-                        console.log(`Match ${matchCount} at ${percentThrough}% (pos ${offset}): "${match}"`);
-                    }
-
-                    // Highlight the term
-                    return `<span class="proper-name">${escapeHtml(match)}</span>`;
-                });
-
-                console.log(`Total matches highlighted: ${matchCount}`);
-                console.log('Top matched terms:', Object.entries(matchedTerms)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 10)
-                    .map(([term, count]) => `${term} (${count}x)`)
-                    .join(', '));
-            } catch (error) {
-                console.error('Error during highlighting:', error);
-            }
+            highlightedCorrected = highlightedCorrected.replace(/«([^»]+)»/g, (match, term) => {
+                return `<span class="proper-name">${escapeHtml(term)}</span>`;
+            });
 
             // Convert newlines to <br> tags for proper display
             highlightedOriginal = highlightedOriginal.replace(/\n/g, '<br>');
