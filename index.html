@@ -149,6 +149,12 @@
             font-size: 13px;
             line-height: 1.6;
             white-space: pre-wrap;
+        }
+
+        .proper-name {
+            color: #0066cc;
+            font-weight: 500;
+            white-space: pre-wrap;
             word-break: break-word;
         }
 
@@ -612,7 +618,8 @@
         const COLLOQUIALISMS = {
             'gonna': 'going to',
             'gotta': 'got to',
-            "'em": 'them'
+            "'em": 'them',
+            'yeah': 'yes'
         };
 
         vttFileInput.addEventListener('change', handleVTTFile);
@@ -736,6 +743,55 @@
             return speakerLabel + content;
         }
 
+        // Track proper names across segments
+        const markedProperNames = new Set();
+
+        function markProperNames(text, changes) {
+            // Skip speaker labels - extract them first
+            const speakerMatch = text.match(/^([A-Z0-9][A-Z0-9\s]*?:\s+)/);
+            const speakerLabel = speakerMatch ? speakerMatch[1] : '';
+            const content = speakerMatch ? text.substring(speakerLabel.length) : text;
+
+            let marked = content;
+
+            // Only mark multi-word names (2-3 consecutive capitalized words)
+            // This captures full human names like "Terry Gross", "George Gerbner"
+            // while mostly avoiding single-word place names or organizations
+            const multiWordPattern = /\b([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/g;
+            marked = marked.replace(multiWordPattern, (match) => {
+                // Skip if it's part of an acronym expansion (contains brackets)
+                if (match.includes('[') || match.includes(']')) {
+                    return match;
+                }
+
+                const lowerMatch = match.toLowerCase();
+
+                // Skip if this name is in the dictionary (keys or values)
+                const inDictionary = Object.keys(dictionary).some(key => key.toLowerCase() === lowerMatch) ||
+                                    Object.values(dictionary).some(val => val.toLowerCase() === lowerMatch);
+                if (inDictionary) {
+                    return match;
+                }
+
+                // Skip if this name is in the acronyms list (keys or values)
+                const inAcronyms = Object.keys(ACRONYMS).some(key => key.toLowerCase() === lowerMatch) ||
+                                  Object.values(ACRONYMS).some(val => val.toLowerCase() === lowerMatch);
+                if (inAcronyms) {
+                    return match;
+                }
+
+                // Check if we've seen this name before (case-insensitive)
+                if (!markedProperNames.has(lowerMatch)) {
+                    markedProperNames.add(lowerMatch);
+                    changes.properNamesMarked = (changes.properNamesMarked || 0) + 1;
+                    return `{{${match}}}`;
+                }
+                return match;
+            });
+
+            return speakerLabel + marked;
+        }
+
         function applyTextCorrections(text, changes) {
             let corrected = text;
 
@@ -765,7 +821,15 @@
                 const matches = corrected.match(regex);
                 if (matches) {
                     changes.colloquialismReplacements += matches.length;
-                    corrected = corrected.replace(regex, formal);
+                    // Preserve capitalization of the matched word
+                    corrected = corrected.replace(regex, (match) => {
+                        // If first letter is uppercase, capitalize replacement
+                        if (match[0] === match[0].toUpperCase()) {
+                            return formal.charAt(0).toUpperCase() + formal.slice(1);
+                        }
+                        // Otherwise keep lowercase
+                        return formal;
+                    });
                 }
             }
 
@@ -774,33 +838,108 @@
 
             // Remove quotation marks and handle capitalization/commas
             const beforeQuotes = corrected;
-            // Handle both straight quotes (") and curly quotes ("")
-            // Using Unicode escapes for curly quotes: \u201C (") and \u201D (")
-            // Using [\s\S] instead of . to match across newlines
+            let quotesRemoved = 0;
 
-            // Pattern: word + comma + space + quote + text + closing quote (keep comma)
-            // Do this FIRST to avoid adding extra comma when one exists
-            corrected = corrected.replace(/(\w)(,\s+)[""\u201C]([\s\S]+?)[""\u201D]/g, (match, word, commaSpace, content) => {
+            // Handle STRAIGHT quotes (paired quotes first, then unpaired)
+            // Pattern 1: word + comma + space + " + text + " (keep comma)
+            corrected = corrected.replace(/(\w)(,\s+)"([^"]+)"/g, (match, word, commaSpace, content) => {
                 const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                quotesRemoved += 2;
                 return word + commaSpace + capitalized;
             });
 
-            // Pattern: word + space + quote + text + closing quote (add comma)
-            corrected = corrected.replace(/(\w)(\s+)[""\u201C]([\s\S]+?)[""\u201D]/g, (match, word, space, content) => {
+            // Pattern 2: word + space + " + text + " (add comma)
+            corrected = corrected.replace(/(\w)(\s+)"([^"]+)"/g, (match, word, space, content) => {
                 const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                quotesRemoved += 2;
                 return word + ',' + space + capitalized;
             });
 
-            // Pattern: quote at start of text or after punctuation
-            corrected = corrected.replace(/(^|[.!?]\s+)[""\u201C]([\s\S]+?)[""\u201D]/g, (match, prefix, content) => {
+            // Pattern 3: " at start or after punctuation
+            corrected = corrected.replace(/(^|[.!?]\s+)"([^"]+)"/g, (match, prefix, content) => {
                 const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                quotesRemoved += 2;
                 return prefix + capitalized;
             });
 
-            if (corrected !== beforeQuotes) {
-                const quotesBefore = (beforeQuotes.match(/[""\u201C\u201D]/g) || []).length;
-                const quotesAfter = (corrected.match(/[""\u201C\u201D]/g) || []).length;
-                changes.quotesRemoved = (changes.quotesRemoved || 0) + Math.floor((quotesBefore - quotesAfter) / 2);
+            // Pattern 4: After em-dash (common in dialogue)
+            corrected = corrected.replace(/(—\s*)"([^"]+)"/g, (match, dash, content) => {
+                const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                quotesRemoved += 2;
+                return dash + capitalized;
+            });
+
+            // Pattern 5: Remove any remaining unpaired quotes (from VTT segment splits)
+            // These occur when a quote spans multiple VTT segments
+
+            // Handle opening quotes mid-sentence: word "Capital -> word capital
+            corrected = corrected.replace(/(\w\s+)"([A-Z])/g, (match, before, capitalLetter) => {
+                quotesRemoved++;
+                return before + capitalLetter.toLowerCase();
+            });
+
+            // Handle opening quotes after punctuation: . "Capital -> . Capital (keep capitalized)
+            // (No change needed - just remove the quote)
+            corrected = corrected.replace(/([.!?,]\s+)"/g, (match, punctuation) => {
+                quotesRemoved++;
+                return punctuation;
+            });
+
+            // Remove any other remaining quotes
+            const remainingQuotes = corrected.match(/"/g);
+            if (remainingQuotes) {
+                corrected = corrected.replace(/"/g, '');
+                quotesRemoved += remainingQuotes.length;
+            }
+
+            // Handle CURLY quotes (paired quotes first, then unpaired)
+            corrected = corrected.replace(/(\w)(,\s+)\u201C([^\u201D]+)\u201D/g, (match, word, commaSpace, content) => {
+                const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                quotesRemoved += 2;
+                return word + commaSpace + capitalized;
+            });
+
+            corrected = corrected.replace(/(\w)(\s+)\u201C([^\u201D]+)\u201D/g, (match, word, space, content) => {
+                const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                quotesRemoved += 2;
+                return word + ',' + space + capitalized;
+            });
+
+            corrected = corrected.replace(/(^|[.!?]\s+)\u201C([^\u201D]+)\u201D/g, (match, prefix, content) => {
+                const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                quotesRemoved += 2;
+                return prefix + capitalized;
+            });
+
+            corrected = corrected.replace(/(—\s*)\u201C([^\u201D]+)\u201D/g, (match, dash, content) => {
+                const capitalized = content.charAt(0).toUpperCase() + content.slice(1);
+                quotesRemoved += 2;
+                return dash + capitalized;
+            });
+
+            // Remove any remaining unpaired curly quotes
+
+            // Handle opening curly quotes mid-sentence: word "Capital -> word capital
+            corrected = corrected.replace(/(\w\s+)\u201C([A-Z])/g, (match, before, capitalLetter) => {
+                quotesRemoved++;
+                return before + capitalLetter.toLowerCase();
+            });
+
+            // Handle opening curly quotes after punctuation: . "Capital -> . Capital (keep capitalized)
+            corrected = corrected.replace(/([.!?,]\s+)\u201C/g, (match, punctuation) => {
+                quotesRemoved++;
+                return punctuation;
+            });
+
+            // Remove any other remaining curly quotes
+            const remainingCurlyQuotes = corrected.match(/[\u201C\u201D]/g);
+            if (remainingCurlyQuotes) {
+                corrected = corrected.replace(/[\u201C\u201D]/g, '');
+                quotesRemoved += remainingCurlyQuotes.length;
+            }
+
+            if (quotesRemoved > 0) {
+                changes.quotesRemoved = (changes.quotesRemoved || 0) + quotesRemoved;
             }
 
             // Replace double hyphens with em-dash (removing spaces on either side)
@@ -812,6 +951,9 @@
 
             // Clean up extra spaces
             corrected = corrected.replace(/\s+/g, ' ').trim();
+
+            // Mark proper names on first mention
+            corrected = markProperNames(corrected, changes);
 
             return corrected;
         }
@@ -864,7 +1006,18 @@
                     };
                 } else {
                     // Same speaker, merge text (without repeating speaker label)
-                    const textWithoutSpeaker = removeSpeakerLabel(segment.text);
+                    let textWithoutSpeaker = removeSpeakerLabel(segment.text);
+
+                    // Fix capitalization: if previous text doesn't end with sentence punctuation,
+                    // lowercase the first letter of the new text (it's mid-sentence)
+                    const currentTextTrimmed = currentSegment.text.trim();
+                    const endsWithSentencePunctuation = /[.!?]$/.test(currentTextTrimmed);
+
+                    if (!endsWithSentencePunctuation && textWithoutSpeaker.length > 0) {
+                        // Lowercase first character if it's a capital letter
+                        textWithoutSpeaker = textWithoutSpeaker.charAt(0).toLowerCase() + textWithoutSpeaker.slice(1);
+                    }
+
                     currentSegment.text += ' ' + textWithoutSpeaker;
                     currentSegment.endTime = segment.endTime;
                     currentSegment.endMs = timeToSeconds(segment.endTime) * 1000;
@@ -988,8 +1141,9 @@
         function processTranscript() {
             if (!vttContent) return;
 
-            // Reset expanded acronyms for new transcript
+            // Reset tracking for new transcript
             expandedAcronyms.clear();
+            markedProperNames.clear();
 
             const changes = {
                 dictionaryReplacements: 0,
@@ -1033,6 +1187,7 @@ Changes Applied:
 - Filler words removed: ${changes.fillerWordsRemoved}
 - Colloquialisms replaced: ${changes.colloquialismReplacements}
 - Acronyms expanded: ${changes.acronymsExpanded}
+- Proper names marked (first mention): ${changes.properNamesMarked || 0}
 - Quotation marks removed: ${changes.quotesRemoved}
 - Em-dashes replaced: ${changes.emDashReplacements}
 - Original cue blocks: ${changes.originalCues}
@@ -1074,7 +1229,14 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
         function highlightDiff(originalVTT, correctedVTT) {
             // Extract just the text content from both VTT files
             const originalText = extractTextFromVTT(originalVTT);
-            const correctedText = extractTextFromVTT(correctedVTT);
+            let correctedText = extractTextFromVTT(correctedVTT);
+
+            // Extract proper names before removing markers
+            const properNames = [];
+            correctedText = correctedText.replace(/\{\{([^}]+)\}\}/g, (match, name) => {
+                properNames.push(name);
+                return name; // Remove brackets, keep just the name
+            });
 
             // Split into words (preserving spaces and punctuation)
             const originalWords = originalText.split(/(\s+|[.,;:!?])/);
@@ -1141,6 +1303,19 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                     }
                 }
             }
+
+            // Highlight proper names in blue (without brackets)
+            for (const name of properNames) {
+                // Escape the name for use in regex
+                const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // Replace the name with blue-highlighted version
+                const regex = new RegExp(`\\b${escapedName}\\b`, 'g');
+                highlightedCorrected = highlightedCorrected.replace(regex, `<span class="proper-name">${escapeHtml(name)}</span>`);
+            }
+
+            // Convert newlines to <br> tags for proper display
+            highlightedOriginal = highlightedOriginal.replace(/\n/g, '<br>');
+            highlightedCorrected = highlightedCorrected.replace(/\n/g, '<br>');
 
             return {
                 original: highlightedOriginal,

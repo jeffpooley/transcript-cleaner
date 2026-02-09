@@ -95,6 +95,16 @@ Add new acronyms via the UI - no file editing needed!
 - Works immediately (no refresh needed)
 - Download merged acronyms (built-in + custom)
 
+## Proper Name Marking (NEW!)
+
+First mentions of full human names (2-3 word names) are automatically marked with double curly brackets for easy identification and verification:
+- Detects multi-word names: `{{Terry Gross}}`, `{{George Gerbner}}`, `{{Marty Glickman}}`
+- Only marks names with 2-3 consecutive capitalized words (typical for full human names)
+- Skips single-word names, place names, and organizations
+- Subsequent mentions are not marked (only first reference)
+- After processing, search for `{{` in the editable transcript to find all flagged names
+- Verify spellings and remove brackets once confirmed
+
 ## Hard-Coded Rules
 
 The following corrections are applied automatically:
@@ -103,6 +113,7 @@ The following corrections are applied automatically:
   - "gonna" → "going to"
   - "gotta" → "got to"
   - "'em" → "them"
+  - "yeah" → "yes" (preserves capitalization)
 - Remove quotation marks and handle formatting:
   - `He said "this is a quote"` → `He said, This is a quote` (adds comma, capitalizes)
   - `He said, "this is a quote"` → `He said, This is a quote` (keeps comma, capitalizes)
@@ -118,9 +129,9 @@ The following corrections are applied automatically:
 ## Future Enhancements
 
 - Deploy to GitHub Pages for iPad access
-- Extract proper names from existing corrected PDF transcripts
 - Additional customizable rules
 - Batch processing multiple files
+- Import proper names dictionary from existing corrected transcripts
 
 ## Technical Details
 
