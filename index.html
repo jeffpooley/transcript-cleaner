@@ -1352,7 +1352,15 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
 
                 let matchCount = 0;
                 const matchedTerms = {};
-                highlightedCorrected = highlightedCorrected.replace(highlightRegex, (match, offset) => {
+                highlightedCorrected = highlightedCorrected.replace(highlightRegex, (fullMatch, capturedGroup, offset, originalString) => {
+                    const match = capturedGroup || fullMatch;
+
+                    // Skip speaker labels (words followed by colon)
+                    const afterMatch = originalString.substring(offset + match.length, offset + match.length + 10);
+                    if (afterMatch.match(/^:\s/)) {
+                        return match; // Don't highlight speaker labels
+                    }
+
                     // If it's an acronym, check if it should be highlighted
                     if (/^[A-Z]{2,}$/.test(match)) {
                         if (ACRONYMS[match] || ACRONYM_EXCLUSIONS.includes(match)) {
@@ -1365,7 +1373,9 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
 
                     // Log every 10th match to track progress
                     if (matchCount % 10 === 0) {
-                        console.log(`Match ${matchCount} at position ${offset}: "${match}"`);
+                        const textLength = originalString.length;
+                        const percentThrough = ((offset / textLength) * 100).toFixed(1);
+                        console.log(`Match ${matchCount} at ${percentThrough}% (pos ${offset}): "${match}"`);
                     }
 
                     // Highlight the term
