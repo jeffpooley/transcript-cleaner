@@ -965,6 +965,9 @@
         }
 
         function capitalizeSpeakerText(text) {
+            // Remove hyphen/em-dash after speaker label: "GROSS: - text" → "GROSS: text"
+            text = text.replace(/^([A-Z0-9][A-Z0-9\s]*?:\s+)[—-]\s+/, '$1');
+
             // Capitalize first word after speaker label (unless preceded by em-dash or other punctuation)
             // This should only be called AFTER speaker consolidation
             return text.replace(/^([A-Z0-9][A-Z0-9\s]*?:\s+)([a-z])/, (match, label, firstChar) => {
