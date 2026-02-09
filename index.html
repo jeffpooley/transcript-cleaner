@@ -173,7 +173,7 @@
         }
 
         .diff-added {
-            background-color: #ccffcc;
+            /* Green highlighting removed to avoid interfering with proper name highlighting */
             padding: 2px 0;
         }
 
@@ -1329,6 +1329,20 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 const regex = new RegExp(`\\b${escapedName}\\b`, 'g');
                 highlightedCorrected = highlightedCorrected.replace(regex, `<span class="proper-name">${escapeHtml(name)}</span>`);
             }
+
+            // Highlight likely acronyms in blue (2+ letter all-caps words not in ACRONYMS list)
+            // Match words that are all uppercase, 2+ letters, not already in brackets
+            const acronymPattern = /\b([A-Z]{2,})\b/g;
+            highlightedCorrected = highlightedCorrected.replace(acronymPattern, (match, acronym) => {
+                // Skip if already highlighted (inside a span tag before this match)
+                // Skip if in the known ACRONYMS list (already expanded)
+                // Skip if in exclusion list
+                if (ACRONYMS[acronym] || ACRONYM_EXCLUSIONS.includes(acronym)) {
+                    return match;
+                }
+                // Highlight unknown acronyms in blue
+                return `<span class="proper-name">${escapeHtml(acronym)}</span>`;
+            });
 
             // Convert newlines to <br> tags for proper display
             highlightedOriginal = highlightedOriginal.replace(/\n/g, '<br>');
