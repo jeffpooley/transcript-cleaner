@@ -368,49 +368,9 @@
         let changeReport = null;
         let originalFilename = '';
 
-        // Built-in dictionary for communication research oral histories
-        // Edit this object to add/remove/modify entries
-        let dictionary = {
-            "gobner": "Gerbner",
-            "gerbner": "Gerbner",
-            "terry gross": "Terry Gross",
-            "teri gross": "Terry Gross",
-            "npr": "NPR",
-            "pensylvania": "Pennsylvania",
-            "philadelphia": "Philadelphia",
-            "seth abraham": "Seth Abraham",
-            "michael fuchs": "Michael Fuchs",
-            "united states": "United States",
-            "jefferson pooley": "Jefferson Pooley",
-            "communication scholars oral history project": "Communication Scholars Oral History Project",
-            "annenberg school": "Annenberg School",
-            "communication library archives": "Communication Library Archives",
-            "history project": "History Project",
-            "larry gross": "Larry Gross",
-            "czech republic": "Czech Republic",
-            "leonard moudin": "Leonard Boudin",
-            "communication scholars oral": "Communication Scholars Oral"
-        };
-
-        // Built-in acronyms dictionary - loaded from acronyms.json
-        let ACRONYMS = {
-            "HBO": "Home Box Office",
-            "NPR": "National Public Radio",
-            "PBS": "Public Broadcasting Service",
-            "FCC": "Federal Communications Commission",
-            "CBS": "Columbia Broadcasting System",
-            "NBC": "National Broadcasting Company",
-            "ABC": "American Broadcasting Company",
-            "BBC": "British Broadcasting Corporation",
-            "CNN": "Cable News Network",
-            "ESPN": "Entertainment and Sports Programming Network",
-            "MTV": "Music Television",
-            "MLB": "Major League Baseball",
-            "NFL": "National Football League",
-            "NBA": "National Basketball Association",
-            "NHL": "National Hockey League",
-            "NCAA": "National Collegiate Athletic Association"
-        };
+        // Dictionary and acronyms - loaded from external JSON files at startup
+        let dictionary = {};
+        let ACRONYMS = {};
 
         // Acronyms to exclude from expansion (too common or single letters)
         const ACRONYM_EXCLUSIONS = ['TV', 'US', 'UK', 'OK', 'AM', 'PM', 'A', 'I'];
@@ -633,6 +593,40 @@
             "'em": 'them',
             'yeah': 'yes'
         };
+
+        // Load dictionary and acronyms from JSON files on startup
+        async function loadDictionaries() {
+            try {
+                // Load dictionary
+                const dictResponse = await fetch('dictionary.json');
+                if (dictResponse.ok) {
+                    dictionary = await dictResponse.json();
+                    console.log(`Loaded ${Object.keys(dictionary).length} dictionary entries`);
+                } else {
+                    console.warn('Could not load dictionary.json, using empty dictionary');
+                }
+
+                // Load acronyms
+                const acronymsResponse = await fetch('acronyms.json');
+                if (acronymsResponse.ok) {
+                    ACRONYMS = await acronymsResponse.json();
+                    console.log(`Loaded ${Object.keys(ACRONYMS).length} acronyms`);
+                } else {
+                    console.warn('Could not load acronyms.json, using empty acronyms');
+                }
+
+                // Load custom entries from localStorage and merge
+                loadCustomDictionaryEntries();
+                loadCustomAcronyms();
+            } catch (error) {
+                console.error('Error loading dictionaries:', error);
+            }
+        }
+
+        // Load dictionaries before setting up event listeners
+        loadDictionaries().then(() => {
+            console.log('Dictionaries loaded, app ready');
+        });
 
         vttFileInput.addEventListener('change', handleVTTFile);
         processBtn.addEventListener('click', processTranscript);
