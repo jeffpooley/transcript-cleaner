@@ -1286,6 +1286,9 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 correctedText = correctedText.replace(regex, `«${term}»`);
             }
 
+            // Save the marked text for the clean corrected view
+            const markedCorrectedText = correctedText;
+
             // Split into words (preserving spaces and punctuation)
             const originalWords = originalText.split(/(\s+|[.,;:!?])/);
             const correctedWords = correctedText.split(/(\s+|[.,;:!?])/);
@@ -1367,7 +1370,8 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
 
             return {
                 original: highlightedOriginal,
-                corrected: highlightedCorrected
+                corrected: highlightedCorrected,
+                markedText: markedCorrectedText
             };
         }
 
@@ -1399,11 +1403,8 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
             const diff = highlightDiff(vttContent, correctedVTT);
             originalContentDiv.innerHTML = diff.original;
 
-            // For corrected view: build clean text with blue highlighting only (no diff markup)
-            let correctedClean = extractTextFromVTT(correctedVTT);
-
-            // Remove {{brackets}} from proper names
-            correctedClean = correctedClean.replace(/\{\{([^}]+)\}\}/g, '$1');
+            // For corrected view: use the marked text (has « » markers for proper names)
+            let correctedClean = diff.markedText;
 
             // Convert to HTML with line breaks
             correctedClean = escapeHtml(correctedClean)
