@@ -1322,19 +1322,22 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
             }
 
             // Highlight proper names in blue (without brackets)
-            for (const name of properNames) {
+            // First, deduplicate the properNames array
+            const uniqueNames = [...new Set(properNames)];
+
+            for (const name of uniqueNames) {
                 // Escape the name for use in regex
                 const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 // Replace the name with blue-highlighted version
-                const regex = new RegExp(`\\b${escapedName}\\b`, 'g');
+                // Use negative lookahead to avoid matching names already in spans
+                const regex = new RegExp(`(?<!<span[^>]*>)\\b${escapedName}\\b(?![^<]*<\\/span>)`, 'g');
                 highlightedCorrected = highlightedCorrected.replace(regex, `<span class="proper-name">${escapeHtml(name)}</span>`);
             }
 
             // Highlight likely acronyms in blue (2+ letter all-caps words not in ACRONYMS list)
-            // Match words that are all uppercase, 2+ letters, not already in brackets
-            const acronymPattern = /\b([A-Z]{2,})\b/g;
+            // Match words that are all uppercase, 2+ letters, not already inside span tags
+            const acronymPattern = /(?<!<span[^>]*>)\b([A-Z]{2,})\b(?![^<]*<\/span>)/g;
             highlightedCorrected = highlightedCorrected.replace(acronymPattern, (match, acronym) => {
-                // Skip if already highlighted (inside a span tag before this match)
                 // Skip if in the known ACRONYMS list (already expanded)
                 // Skip if in exclusion list
                 if (ACRONYMS[acronym] || ACRONYM_EXCLUSIONS.includes(acronym)) {
