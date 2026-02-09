@@ -1321,30 +1321,35 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 }
             }
 
-            // Highlight proper names in blue (without brackets)
-            // First, deduplicate the properNames array
+            // Highlight proper names and acronyms in blue
+            // Build a single regex pattern for all terms to highlight
+            const termsToHighlight = [];
+
+            // Add proper names (deduplicated)
             const uniqueNames = [...new Set(properNames)];
+            termsToHighlight.push(...uniqueNames);
 
-            for (const name of uniqueNames) {
-                // Escape the name for use in regex
-                const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                // Replace the name with blue-highlighted version
-                // Use negative lookahead to avoid matching names already in spans
-                const regex = new RegExp(`(?<!<span[^>]*>)\\b${escapedName}\\b(?![^<]*<\\/span>)`, 'g');
-                highlightedCorrected = highlightedCorrected.replace(regex, `<span class="proper-name">${escapeHtml(name)}</span>`);
-            }
+            // Create pattern for unknown acronyms (will check during replacement)
+            const allTermsPattern = termsToHighlight
+                .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                .join('|');
 
-            // Highlight likely acronyms in blue (2+ letter all-caps words not in ACRONYMS list)
-            // Match words that are all uppercase, 2+ letters, not already inside span tags
-            const acronymPattern = /(?<!<span[^>]*>)\b([A-Z]{2,})\b(?![^<]*<\/span>)/g;
-            highlightedCorrected = highlightedCorrected.replace(acronymPattern, (match, acronym) => {
-                // Skip if in the known ACRONYMS list (already expanded)
-                // Skip if in exclusion list
-                if (ACRONYMS[acronym] || ACRONYM_EXCLUSIONS.includes(acronym)) {
-                    return match;
+            // Also match potential acronyms (2+ uppercase letters)
+            const fullPattern = allTermsPattern ?
+                `\\b(${allTermsPattern}|[A-Z]{2,})\\b` :
+                `\\b([A-Z]{2,})\\b`;
+
+            const highlightRegex = new RegExp(fullPattern, 'g');
+
+            highlightedCorrected = highlightedCorrected.replace(highlightRegex, (match) => {
+                // If it's an acronym, check if it should be highlighted
+                if (/^[A-Z]{2,}$/.test(match)) {
+                    if (ACRONYMS[match] || ACRONYM_EXCLUSIONS.includes(match)) {
+                        return match; // Don't highlight known acronyms
+                    }
                 }
-                // Highlight unknown acronyms in blue
-                return `<span class="proper-name">${escapeHtml(acronym)}</span>`;
+                // Highlight the term
+                return `<span class="proper-name">${escapeHtml(match)}</span>`;
             });
 
             // Convert newlines to <br> tags for proper display
