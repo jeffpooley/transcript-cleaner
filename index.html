@@ -1398,7 +1398,11 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
             // Show diff with highlighting
             const diff = highlightDiff(vttContent, correctedVTT);
             originalContentDiv.innerHTML = diff.original;
-            correctedContentDiv.innerHTML = diff.corrected;
+
+            // For corrected view: show clean text without diff markup, just blue highlighting
+            correctedContentDiv.innerHTML = diff.corrected
+                .replace(/<span class="diff-added">([^<]+)<\/span>/g, '$1') // Remove green markup
+                .replace(/<span class="diff-deleted">([^<]+)<\/span>/g, ''); // Remove deleted text entirely
 
             // Show results section
             resultsDiv.classList.add('visible');
