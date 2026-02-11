@@ -864,6 +864,14 @@
                 // Skip if this name is in the dictionary (keys or values)
                 const inDictionary = Object.keys(dictionary).some(key => key.toLowerCase() === lowerMatch) ||
                                     Object.values(dictionary).some(val => val.toLowerCase() === lowerMatch);
+
+                // Debug logging for first few names
+                if (markedProperNames.size < 5) {
+                    console.log(`Checking name: "${match}" (lowercase: "${lowerMatch}")`);
+                    console.log(`  In dictionary? ${inDictionary}`);
+                    console.log(`  Dictionary has ${Object.keys(dictionary).length} entries`);
+                }
+
                 if (inDictionary) {
                     return match;
                 }
