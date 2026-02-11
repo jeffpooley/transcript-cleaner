@@ -849,10 +849,11 @@
 
             let marked = content;
 
-            // Only mark multi-word names (2-3 consecutive capitalized words)
+            // Only mark multi-word names (2-6 consecutive capitalized words)
             // This captures full human names like "Terry Gross", "George Gerbner"
+            // as well as longer institutional names like "Communication Scholars Oral History Project"
             // while mostly avoiding single-word place names or organizations
-            const multiWordPattern = /\b([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/g;
+            const multiWordPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,5})\b/g;
             marked = marked.replace(multiWordPattern, (match) => {
                 // Skip if it's part of an acronym expansion (contains brackets)
                 if (match.includes('[') || match.includes(']')) {
