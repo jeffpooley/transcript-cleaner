@@ -14,6 +14,17 @@ Thumbs.db
 *.pdf
 test_*
 
+# Extraction scripts and intermediate files (keep local only)
+extract_*.py
+extract_*.js
+clean_*.py
+finalize_*.py
+final_*.py
+extracted_*.json
+cleaned_*.json
+merged_*.json
+example xml transcripts/
+
 # Keep the example dictionary and acronyms
 !dictionary.json
 !acronyms.json

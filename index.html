@@ -99,6 +99,32 @@
             display: block;
         }
 
+        .results-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .managers-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .manager-box {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .manager-box h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
         .report {
             background: #f9f9f9;
             padding: 15px;
@@ -123,9 +149,13 @@
 
         .diff-container {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 20px;
             margin-top: 20px;
+        }
+
+        .diff-panel.original {
+            display: none;
         }
 
         .diff-panel {
@@ -152,9 +182,8 @@
         }
 
         .proper-name {
-            color: #0066cc;
+            color: #0066cc !important;
             font-weight: 500;
-            white-space: pre-wrap;
             word-break: break-word;
         }
 
@@ -226,22 +255,25 @@
 
         .add-entry {
             display: flex;
-            gap: 10px;
-            align-items: center;
+            flex-direction: column;
+            gap: 8px;
             margin-bottom: 20px;
         }
 
         .add-entry input[type="text"] {
-            flex: 1;
+            width: 100%;
             padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
         }
 
+        .add-entry button {
+            width: 100%;
+        }
+
         .add-entry .arrow {
-            color: #666;
-            font-weight: bold;
+            display: none;
         }
 
         .custom-entries {
@@ -304,7 +336,7 @@
         <button id="processBtn" disabled>Process Transcript</button>
     </div>
 
-    <div class="controls">
+    <div class="controls" style="display: none;">
         <h3>Dictionary Manager</h3>
         <div class="dictionary-manager">
             <div class="add-entry">
@@ -323,7 +355,7 @@
         </div>
     </div>
 
-    <div class="controls">
+    <div class="controls" style="display: none;">
         <h3>Acronym Manager</h3>
         <div class="dictionary-manager">
             <div class="add-entry">
@@ -343,19 +375,57 @@
     </div>
 
     <div id="results" class="results">
-        <div id="report" class="report"></div>
-
-        <div class="diff-container">
-            <div class="diff-panel original">
-                <div class="diff-header">Original</div>
-                <div id="originalContent" class="diff-content"></div>
+        <div class="results-layout">
+            <!-- Left: Corrected transcript -->
+            <div class="diff-container">
+                <div class="diff-panel original">
+                    <div class="diff-header">Original</div>
+                    <div id="originalContent" class="diff-content"></div>
+                </div>
+                <div class="diff-panel corrected">
+                    <div class="diff-header">Corrected</div>
+                    <div id="correctedContent" class="diff-content"></div>
+                </div>
             </div>
-            <div class="diff-panel corrected">
-                <div class="diff-header">Corrected</div>
-                <div id="correctedContent" class="diff-content"></div>
+
+            <!-- Right: Managers -->
+            <div class="managers-column">
+                <div class="manager-box">
+                    <h3>Dictionary Manager</h3>
+                    <div class="dictionary-manager">
+                        <div class="add-entry">
+                            <input type="text" id="incorrectWordResult" placeholder="Incorrect word/phrase" />
+                            <span class="arrow">→</span>
+                            <input type="text" id="correctWordResult" placeholder="Correct version" />
+                            <button id="addEntryBtnResult">Add</button>
+                        </div>
+                        <div id="customEntriesResult" class="custom-entries" style="max-height: 150px;">
+                            <div id="entriesListResult" class="entries-list"></div>
+                        </div>
+                        <button id="downloadDictBtnResult" class="secondary-button">Download Dictionary</button>
+                    </div>
+                </div>
+
+                <div class="manager-box">
+                    <h3>Acronym Manager</h3>
+                    <div class="dictionary-manager">
+                        <div class="add-entry">
+                            <input type="text" id="acronymShortResult" placeholder="Acronym" />
+                            <span class="arrow">→</span>
+                            <input type="text" id="acronymFullResult" placeholder="Full name" />
+                            <button id="addAcronymBtnResult">Add</button>
+                        </div>
+                        <div id="customAcronymsResult" class="custom-entries" style="max-height: 150px;">
+                            <div id="acronymsListResult" class="entries-list"></div>
+                        </div>
+                        <button id="downloadAcronymsBtnResult" class="secondary-button">Download Acronyms</button>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- Bottom: Report and downloads -->
+        <div id="report" class="report"></div>
         <div class="download-buttons">
             <button id="downloadBtn">Download Corrected VTT</button>
             <button id="downloadReportBtn" class="secondary-button">Download Report</button>
@@ -453,9 +523,12 @@
             });
         }
 
-        function addDictionaryEntry() {
-            const incorrect = incorrectWordInput.value.trim().toLowerCase();
-            const correct = correctWordInput.value.trim();
+        function addDictionaryEntry(suffix = '') {
+            const incorrectInput = document.getElementById(`incorrectWord${suffix}`);
+            const correctInput = document.getElementById(`correctWord${suffix}`);
+
+            const incorrect = incorrectInput.value.trim().toLowerCase();
+            const correct = correctInput.value.trim();
 
             if (!incorrect || !correct) {
                 alert('Please enter both incorrect and correct versions');
@@ -467,8 +540,8 @@
             saveCustomEntries(customEntries);
 
             // Clear inputs
-            incorrectWordInput.value = '';
-            correctWordInput.value = '';
+            incorrectInput.value = '';
+            correctInput.value = '';
 
             // Update display and working dictionary
             updateEntriesList();
@@ -539,9 +612,12 @@
             });
         }
 
-        function addAcronym() {
-            const short = acronymShortInput.value.trim().toUpperCase();
-            const full = acronymFullInput.value.trim();
+        function addAcronym(suffix = '') {
+            const shortInput = document.getElementById(`acronymShort${suffix}`);
+            const fullInput = document.getElementById(`acronymFull${suffix}`);
+
+            const short = shortInput.value.trim().toUpperCase();
+            const full = fullInput.value.trim();
 
             if (!short || !full) {
                 alert('Please enter both acronym and full name');
@@ -553,8 +629,8 @@
             saveCustomAcronyms(customAcronyms);
 
             // Clear inputs
-            acronymShortInput.value = '';
-            acronymFullInput.value = '';
+            shortInput.value = '';
+            fullInput.value = '';
 
             // Update display and working ACRONYMS
             updateAcronymsList();
@@ -615,9 +691,12 @@
                     console.warn('Could not load acronyms.json, using empty acronyms');
                 }
 
-                // Load custom entries from localStorage and merge
-                loadCustomDictionaryEntries();
-                loadCustomAcronyms();
+                // Merge custom entries from localStorage
+                const customDict = loadCustomEntries();
+                Object.assign(dictionary, customDict);
+
+                const customAcronyms = loadCustomAcronyms();
+                Object.assign(ACRONYMS, customAcronyms);
             } catch (error) {
                 console.error('Error loading dictionaries:', error);
             }
@@ -636,6 +715,16 @@
         downloadDictBtn.addEventListener('click', downloadMergedDictionary);
         addAcronymBtn.addEventListener('click', addAcronym);
         downloadAcronymsBtn.addEventListener('click', downloadMergedAcronyms);
+
+        // Results view managers (same functions, different element IDs)
+        document.getElementById('addEntryBtnResult').addEventListener('click', () => {
+            addDictionaryEntry('Result');
+        });
+        document.getElementById('downloadDictBtnResult').addEventListener('click', downloadMergedDictionary);
+        document.getElementById('addAcronymBtnResult').addEventListener('click', () => {
+            addAcronym('Result');
+        });
+        document.getElementById('downloadAcronymsBtnResult').addEventListener('click', downloadMergedAcronyms);
 
         // Allow Enter key to add dictionary entry
         correctWordInput.addEventListener('keypress', (e) => {
@@ -955,6 +1044,9 @@
                 corrected = corrected.replace(/\s*--\s*/g, '—');
             }
 
+            // Remove any spaces after em-dashes
+            corrected = corrected.replace(/—\s+/g, '—');
+
             // Replace ellipses with em-dash (removing spaces on either side)
             const ellipsisMatches = corrected.match(/\s*(\.\.\.|…)\s*/g);
             if (ellipsisMatches) {
@@ -1255,6 +1347,37 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 return name; // Remove brackets, keep just the name
             });
 
+            // Mark all proper names and acronyms with special markers BEFORE building diff
+            // Use Unicode characters unlikely to appear in text: « and »
+            const termsToHighlight = [...new Set(properNames)]; // deduplicate
+
+            // Also find acronyms in the text
+            const acronymMatches = correctedText.match(/\b[A-Z]{2,}\b/g) || [];
+            acronymMatches.forEach(acronym => {
+                if (!ACRONYMS[acronym] && !ACRONYM_EXCLUSIONS.includes(acronym)) {
+                    // Skip if it's a speaker label (followed by colon)
+                    const speakerPattern = new RegExp(`\\b${acronym}:\\s`, 'g');
+                    if (!correctedText.match(speakerPattern)) {
+                        termsToHighlight.push(acronym);
+                    }
+                }
+            });
+
+            // Sort by length (longest first) to avoid partial replacements
+            const sortedTerms = [...new Set(termsToHighlight)].sort((a, b) => b.length - a.length);
+
+            console.log(`Marking ${sortedTerms.length} terms for highlighting`);
+
+            // Mark each term with special markers
+            for (const term of sortedTerms) {
+                const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`\\b${escapedTerm}\\b`, 'g');
+                correctedText = correctedText.replace(regex, `«${term}»`);
+            }
+
+            // Save the marked text for the clean corrected view
+            const markedCorrectedText = correctedText;
+
             // Split into words (preserving spaces and punctuation)
             const originalWords = originalText.split(/(\s+|[.,;:!?])/);
             const correctedWords = correctedText.split(/(\s+|[.,;:!?])/);
@@ -1321,35 +1444,13 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
                 }
             }
 
-            // Highlight proper names and acronyms in blue
-            // Build a single regex pattern for all terms to highlight
-            const termsToHighlight = [];
+            // Convert markers (« ») to blue highlighting spans
+            // Count markers before conversion
+            const markerCount = (highlightedCorrected.match(/«[^»]+»/g) || []).length;
+            console.log(`Converting ${markerCount} marked terms to blue highlighting`);
 
-            // Add proper names (deduplicated)
-            const uniqueNames = [...new Set(properNames)];
-            termsToHighlight.push(...uniqueNames);
-
-            // Create pattern for unknown acronyms (will check during replacement)
-            const allTermsPattern = termsToHighlight
-                .map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-                .join('|');
-
-            // Also match potential acronyms (2+ uppercase letters)
-            const fullPattern = allTermsPattern ?
-                `\\b(${allTermsPattern}|[A-Z]{2,})\\b` :
-                `\\b([A-Z]{2,})\\b`;
-
-            const highlightRegex = new RegExp(fullPattern, 'g');
-
-            highlightedCorrected = highlightedCorrected.replace(highlightRegex, (match) => {
-                // If it's an acronym, check if it should be highlighted
-                if (/^[A-Z]{2,}$/.test(match)) {
-                    if (ACRONYMS[match] || ACRONYM_EXCLUSIONS.includes(match)) {
-                        return match; // Don't highlight known acronyms
-                    }
-                }
-                // Highlight the term
-                return `<span class="proper-name">${escapeHtml(match)}</span>`;
+            highlightedCorrected = highlightedCorrected.replace(/«([^»]+)»/g, (match, term) => {
+                return `<span class="proper-name">${escapeHtml(term)}</span>`;
             });
 
             // Convert newlines to <br> tags for proper display
@@ -1358,7 +1459,8 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
 
             return {
                 original: highlightedOriginal,
-                corrected: highlightedCorrected
+                corrected: highlightedCorrected,
+                markedText: markedCorrectedText
             };
         }
 
@@ -1389,7 +1491,20 @@ Acronym entries: ${Object.keys(ACRONYMS).length}
             // Show diff with highlighting
             const diff = highlightDiff(vttContent, correctedVTT);
             originalContentDiv.innerHTML = diff.original;
-            correctedContentDiv.innerHTML = diff.corrected;
+
+            // For corrected view: use the marked text (has « » markers for proper names)
+            let correctedClean = diff.markedText;
+
+            // Convert to HTML with line breaks
+            correctedClean = escapeHtml(correctedClean)
+                .replace(/\n/g, '<br>');
+
+            // Now replace escaped markers with blue highlighting spans
+            correctedClean = correctedClean.replace(/«([^»]+)»/g, (match, term) => {
+                return `<span class="proper-name">${term}</span>`;
+            });
+
+            correctedContentDiv.innerHTML = correctedClean;
 
             // Show results section
             resultsDiv.classList.add('visible');
